@@ -1,6 +1,8 @@
 <script setup>
 import { ref } from 'vue'
-import axios from 'axios'
+// import axios from 'axios' <--- BORRA ESTO, ya no usamos el axios "crudo"
+import api from '../axios' // <--- NUEVO: Importamos tu archivo axios.js maestro con la URL de Railway
+
 // import { useRouter } from 'vue-router' <--- BORRA ESTO, NO LO USAREMOS AHORA
 
 // Variables para el formulario
@@ -16,7 +18,9 @@ const iniciarSesion = async () => {
     try {
         // 1. Pedir la "Pulsera" (Token) a Django
         // Asegúrate de que esta URL sea correcta (http://localhost:8000 o http://127.0.0.1:8000)
-        const response = await axios.post('http://127.0.0.1:8000/api/token/', {
+
+        // 👇 CAMBIO CLAVE: Usamos 'api.post' y solo ponemos 'token/' porque la ruta completa ya vive en tu axios.js
+        const response = await api.post('token/', {
             username: username.value,
             password: password.value
         })
