@@ -28,6 +28,10 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 # 👇 ALLOWED_HOSTS: Permitimos que cualquier dominio se conecte (luego lo restringiremos por seguridad)
 ALLOWED_HOSTS = ['*']
 
+# 👇 Le dice a Django que confíe en los formularios que vienen de tu dominio de Railway
+CSRF_TRUSTED_ORIGINS = [
+    'https://portalapoderados-production.up.railway.app',
+]
 
 # Application definition
 

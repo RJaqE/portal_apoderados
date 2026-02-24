@@ -1,7 +1,8 @@
 import axios from 'axios'
 
 const api = axios.create({
-    baseURL: 'http://127.0.0.1:8000/api/',
+    //baseURL: 'http://127.0.0.1:8000/api/',
+    baseURL: 'https://portalapoderados-production.up.railway.app/api/',
     timeout: 5000, // Si tarda más de 5 seg, cancela
     headers: {
         'Content-Type': 'application/json',
