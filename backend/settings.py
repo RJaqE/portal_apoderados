@@ -48,7 +48,7 @@ INSTALLED_APPS = [
     'rest_framework', 
     'corsheaders',
 
-    # 👇 AGREGAR ESTAS DOS LÍNEAS AQUÍ:
+    # Librerías para manejo de imágenes en la nube
     'cloudinary',
     'cloudinary_storage',
     
@@ -128,20 +128,26 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # ==============================================================================
-# 6. ARCHIVOS ESTÁTICOS Y MULTIMEDIA
+# 6. ARCHIVOS ESTÁTICOS Y MULTIMEDIA (DJANGO 5+)
 # ==============================================================================
 
-# Archivos CSS/JS/Imágenes del sistema (Whitenoise)
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# Archivos subidos por los usuarios (Fotos, PDFs, etc.)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# 👇 Le dice a Django: "Guarda las fotos de los usuarios en Cloudinary"
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+# 👇 NUEVA FORMA DE MANEJAR ARCHIVOS (Reemplaza a STATICFILES_STORAGE y DEFAULT_FILE_STORAGE)
+STORAGES = {
+    "default": {
+        # Las fotos de los usuarios van a Cloudinary
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        # Los colores y CSS del panel de admin los maneja Whitenoise
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 # ==============================================================================
 # 7. SEGURIDAD EXTERNA (CORS Y CSRF)
