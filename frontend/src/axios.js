@@ -7,7 +7,7 @@ const api = axios.create({
   // === MODO PRODUCCIÓN (Activado) ===
   baseURL: 'https://portalapoderados-production.up.railway.app/api/',
 
-  timeout: 5000, // Si tarda más de 5 seg, cancela
+  timeout: 15000, // Si tarda más de 15 seg, cancela
   headers: {
     "Content-Type": "application/json",
   },
