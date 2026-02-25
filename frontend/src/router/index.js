@@ -7,9 +7,10 @@ import MisFinanzas from "../views/MisFinanzas.vue";
 import TesoreriaDashboard from "../views/Tesoreria.vue";
 import PanelGestion from "../views/PanelTesoreroView.vue";
 
-// === IMPORTS DE SEGURIDAD (NUEVOS) ===
+// === IMPORTS DE SEGURIDAD ===
 import PrimerIngreso from "../views/PrimerIngreso.vue";
-import CambiarClave from "../views/CambiarClave.vue"; // La crearemos en el próximo paso
+import CambiarClave from "../views/CambiarClave.vue";
+// (RecuperarClave la importaremos directamente abajo para optimizar la carga)
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -21,7 +22,16 @@ const router = createRouter({
       meta: { requiresAuth: false }, // Público
     },
 
-    // 👇 NUEVA RUTA: La "Trampa" obligatoria para usuarios nuevos
+    // 👇 NUEVA RUTA: Olvidé mi contraseña
+    {
+      path: "/recuperar-clave",
+      name: "RecuperarClave",
+      // Carga perezosa: solo carga este archivo si el usuario hace clic en el enlace
+      component: () => import("../views/RecuperarClave.vue"),
+      meta: { requiresAuth: false }, // Público (no necesita token)
+    },
+
+    // La "Trampa" obligatoria para usuarios nuevos
     {
       path: "/primer-ingreso",
       name: "PrimerIngreso",
@@ -29,7 +39,7 @@ const router = createRouter({
       meta: { requiresAuth: true }, // Requiere estar logueado con la clave temporal
     },
 
-    // 👇 NUEVA RUTA: La pantalla que se abre al hacer clic en el correo
+    // La pantalla que se abre al hacer clic en el correo
     {
       path: "/cambiar-clave",
       name: "CambiarClave",
@@ -99,7 +109,7 @@ router.beforeEach((to, from, next) => {
       next();
     }
   } else {
-    // Si es una ruta pública (como / o /cambiar-clave) -> Pase libre.
+    // Si es una ruta pública (como /, /cambiar-clave o /recuperar-clave) -> Pase libre.
     next();
   }
 });

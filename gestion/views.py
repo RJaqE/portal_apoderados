@@ -39,9 +39,38 @@ from .serializers import (
 # 1. SEGURIDAD: PRIMER INGRESO Y RECUPERACIÓN DE CLAVE
 # ==============================================================================
 
+# 🎨 PLANTILLA HTML PARA LOS CORREOS (Diseño Premium)
+def generar_correo_html(usuario, enlace):
+    return f"""
+    <html>
+        <body style="font-family: Arial, sans-serif; background-color: #f4f6f9; padding: 20px;">
+            <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center;">
+                <h1 style="color: #2c3e50; margin-bottom: 5px;">🎓 Portal Apoderados</h1>
+                <p style="color: #7f8c8d; font-size: 14px; margin-top: 0;">Generación 2030 - 8°B</p>
+                
+                <hr style="border: 0; height: 1px; background: #eeeeee; margin: 20px 0;">
+                
+                <h2 style="color: #34495e;">¡Hola {usuario.username}!</h2>
+                <p style="color: #555555; font-size: 16px; line-height: 1.5;">
+                    Hemos recibido una solicitud para asegurar tu cuenta o cambiar tu contraseña. 
+                    Para continuar, haz clic en el siguiente botón:
+                </p>
+                
+                <a href="{enlace}" style="display: inline-block; background-color: #4CAF50; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px; margin: 20px 0;">
+                    Crear Nueva Contraseña ✨
+                </a>
+                
+                <p style="color: #999999; font-size: 12px; margin-top: 30px;">
+                    Si tú no solicitaste este cambio, puedes ignorar este correo con total seguridad. El enlace caducará pronto.
+                </p>
+            </div>
+        </body>
+    </html>
+    """
+
 class SolicitarEnlaceSeguridad(APIView):
-    """ Envía un correo con el código mágico para cambiar la contraseña """
-    permission_classes = [IsAuthenticated] # Solo el usuario recién logueado con clave temporal
+    """ Envía un correo con el código mágico para usuarios nuevos (Primer Ingreso) """
+    permission_classes = [IsAuthenticated] # Solo el usuario logueado con clave temporal
 
     def post(self, request):
         usuario = request.user
@@ -58,28 +87,22 @@ class SolicitarEnlaceSeguridad(APIView):
         token = default_token_generator.make_token(usuario)
         enlace = f"http://localhost:5173/cambiar-clave?token={token}&uid={usuario.id}"
 
-        mensaje = f"""
-        ¡Hola {usuario.username}!
-        
-        Hemos recibido una solicitud para asegurar tu cuenta en el Portal de Apoderados.
-        Por favor, haz clic en el siguiente enlace para verificar tu correo y crear tu contraseña definitiva:
-        
-        {enlace}
-        
-        Si no solicitaste esto, puedes ignorar este correo.
-        """
+        mensaje_html = generar_correo_html(usuario, enlace)
         
         try:
+            # 📬 Cartero enviando HTML
             send_mail(
-                '🔒 Verifica tu correo - Portal Apoderados',
-                mensaje,
-                os.environ.get('EMAIL_HOST_USER'),
-                [nuevo_correo],
+                subject='🔒 Verifica tu correo - Portal Apoderados',
+                message='Verifica tu correo para crear tu contraseña.',
+                from_email=os.environ.get('EMAIL_HOST_USER'),
+                recipient_list=[nuevo_correo],
+                html_message=mensaje_html, # El diseño bonito 🎨
                 fail_silently=False,
             )
             return Response({'mensaje': 'Correo enviado exitosamente. Revisa tu bandeja de entrada.'})
         except Exception as e:
             return Response({'error': f'Error al enviar el correo: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class ConfirmarCambioClave(APIView):
     """ Recibe el click del correo, valida el token y guarda la nueva contraseña """
@@ -108,6 +131,42 @@ class ConfirmarCambioClave(APIView):
             return Response({'mensaje': 'Contraseña actualizada con éxito. Ya puedes iniciar sesión.'})
         else:
             return Response({'error': 'El enlace es inválido o ha expirado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+class RecuperarClaveOlvidada(APIView):
+    """ Envía un enlace para cambiar contraseña si el usuario olvidó la suya """
+    permission_classes = [] # Público, porque el usuario no puede iniciar sesión
+
+    def post(self, request):
+        correo = request.data.get('correo')
+
+        if not correo:
+            return Response({'error': 'Debes proporcionar un correo electrónico.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Buscamos al usuario por su correo
+        usuario = User.objects.filter(email=correo).first()
+
+        if usuario:
+            # Si lo encontramos, reciclamos la lógica de tokens
+            token = default_token_generator.make_token(usuario)
+            enlace = f"http://localhost:5173/cambiar-clave?token={token}&uid={usuario.id}"
+            
+            mensaje_html = generar_correo_html(usuario, enlace)
+
+            try:
+                send_mail(
+                    subject='🔑 Recuperación de Contraseña - Portal Apoderados',
+                    message='Has solicitado recuperar tu contraseña.',
+                    from_email=os.environ.get('EMAIL_HOST_USER'),
+                    recipient_list=[correo],
+                    html_message=mensaje_html,
+                    fail_silently=False,
+                )
+                return Response({'mensaje': 'Enlace enviado si el correo existe.'}) # Mensaje genérico de seguridad
+            except Exception as e:
+                return Response({'error': 'Error interno del servidor de correo.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            # 🚨 El correo no existe. Le avisamos a Vue con un código especial.
+            return Response({'error': 'correo_no_encontrado'}, status=status.HTTP_404_NOT_FOUND)
 
 
 # ==============================================================================

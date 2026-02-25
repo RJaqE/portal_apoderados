@@ -65,7 +65,7 @@ const iniciarSesion = async () => {
     <div class="login-container">
         <div class="login-box">
             <h1>🔐 Ingreso al Portal</h1>
-            <p class="subtitulo">Gestión de Tesorería Escolar</p>
+            <p class="subtitulo">Gestión de Directiva Escolar</p>
 
             <form @submit.prevent="iniciarSesion">
                 <div class="campo">
@@ -84,6 +84,13 @@ const iniciarSesion = async () => {
                     {{ cargando ? 'Verificando...' : 'Ingresar' }}
                 </button>
             </form>
+
+            <div class="opciones-extra">
+                <router-link to="/recuperar-clave" class="link-recuperar">
+                    ¿Olvidaste tu contraseña?
+                </router-link>
+            </div>
+
         </div>
     </div>
 </template>
@@ -160,5 +167,23 @@ button:disabled {
     color: #e74c3c;
     font-weight: bold;
     margin-top: 10px;
+}
+
+/* 👇 NUEVO ESTILO: Enlace de recuperar contraseña */
+.opciones-extra {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 14px;
+}
+
+.link-recuperar {
+    color: #3498db;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.link-recuperar:hover {
+    color: #2980b9;
+    text-decoration: underline;
 }
 </style>
