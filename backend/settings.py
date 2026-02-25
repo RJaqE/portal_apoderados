@@ -47,6 +47,10 @@ INSTALLED_APPS = [
     # Librerías de terceros instaladas
     'rest_framework', 
     'corsheaders',
+
+    # 👇 AGREGAR ESTAS DOS LÍNEAS AQUÍ:
+    'cloudinary',
+    'cloudinary_storage',
     
     # Tus aplicaciones
     'gestion', 
@@ -135,6 +139,9 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # Archivos subidos por los usuarios (Fotos, PDFs, etc.)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# 👇 Le dice a Django: "Guarda las fotos de los usuarios en Cloudinary"
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # ==============================================================================
 # 7. SEGURIDAD EXTERNA (CORS Y CSRF)
