@@ -111,6 +111,9 @@ else:
         }
     }
 
+# Tipo de campo automático por defecto para las llaves primarias (IDs)
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 # ==============================================================================
 # 5. CONFIGURACIÓN REGIONAL Y VALIDACIONES
 # ==============================================================================

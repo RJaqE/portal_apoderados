@@ -4,10 +4,12 @@ import Muro from "../views/Muro.vue";
 import MisFinanzas from "../views/MisFinanzas.vue";
 
 // === IMPORTS DE LAS VISTAS DE PODER ===
-// 1. El Nuevo Dashboard (Gráficos y Tarjetas)
 import TesoreriaDashboard from "../views/Tesoreria.vue";
-// 2. La Antigua Vista (Tabla de Gestión detallada / "La Magia")
 import PanelGestion from "../views/PanelTesoreroView.vue";
+
+// === IMPORTS DE SEGURIDAD (NUEVOS) ===
+import PrimerIngreso from "../views/PrimerIngreso.vue";
+import CambiarClave from "../views/CambiarClave.vue"; // La crearemos en el próximo paso
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -18,6 +20,23 @@ const router = createRouter({
       component: Login,
       meta: { requiresAuth: false }, // Público
     },
+
+    // 👇 NUEVA RUTA: La "Trampa" obligatoria para usuarios nuevos
+    {
+      path: "/primer-ingreso",
+      name: "PrimerIngreso",
+      component: PrimerIngreso,
+      meta: { requiresAuth: true }, // Requiere estar logueado con la clave temporal
+    },
+
+    // 👇 NUEVA RUTA: La pantalla que se abre al hacer clic en el correo
+    {
+      path: "/cambiar-clave",
+      name: "CambiarClave",
+      component: CambiarClave,
+      meta: { requiresAuth: false }, // Pública, porque llega desde su correo sin estar logueado
+    },
+
     {
       path: "/muro",
       name: "Muro",
@@ -30,27 +49,16 @@ const router = createRouter({
       component: MisFinanzas,
       meta: { requiresAuth: true }, // 🔒 Privado
     },
-
-    // === RUTA PARA DIRECTIVA Y TESORERO (El Resumen) ===
-    // Conecta con el botón "📊 Resumen" del Navbar
     {
       path: "/tesoreria-resumen",
       name: "TesoreriaDashboard",
       component: TesoreriaDashboard,
       meta: { requiresAuth: true }, // 🔒 Privado
     },
-
-    // === 🚑 CORRECCIÓN DE ERRORES (REDIRECCIÓN) ===
-    // Esto arregla el error "No match found for /tesoreria".
-    // Si algo intenta entrar a la ruta vieja, lo mandamos a la nueva.
     {
       path: "/tesoreria",
       redirect: "/tesoreria-resumen",
     },
-
-    // === RUTA SOLO PARA EL TESORERO (Gestión Total) ===
-    // Conecta con el botón "⚡ Gestión" del Navbar
-    // Aquí cargamos la vista antigua 'PanelTesoreroView'
     {
       path: "/gestion-total",
       name: "PanelGestion",
@@ -60,23 +68,38 @@ const router = createRouter({
   ],
 });
 
-// === EL PORTERO (Guardia de Navegación) ===
+// === EL PORTERO (Guardia de Navegación Mejorado) ===
 router.beforeEach((to, from, next) => {
-  // Verificamos en consola a dónde intenta ir el usuario
   console.log(`Intentando ir a: ${to.path}`);
 
-  // Revisamos si la ruta necesita "Pase Especial" (Auth)
   const rutaProtegida = to.matched.some((record) => record.meta.requiresAuth);
-
-  // Buscamos el token en el bolsillo
   const token = localStorage.getItem("token");
 
+  // Leemos si el usuario tiene la marca de novato en su navegador
+  // (Esto lo guardaremos en el Login más adelante)
+  const debeCambiarClave =
+    localStorage.getItem("debe_cambiar_clave") === "true";
+
   if (rutaProtegida && !token) {
-    // Si es protegida y NO tiene token -> ¡FUERA! Al Login.
+    // Sin token -> ¡FUERA! Al Login.
     console.log("⛔ Acceso denegado. Redirigiendo al Login.");
     next("/");
+  } else if (rutaProtegida && token) {
+    // === EL NUEVO FILTRO DE SEGURIDAD ===
+    if (debeCambiarClave && to.path !== "/primer-ingreso") {
+      // Si DEBE cambiar su clave, y está intentando ir a cualquier otra parte, lo atrapamos
+      console.log("🔒 Usuario nuevo detectado. Redirigiendo a Primer Ingreso.");
+      next("/primer-ingreso");
+    } else if (!debeCambiarClave && to.path === "/primer-ingreso") {
+      // Si NO DEBE cambiar clave, pero intenta entrar a /primer-ingreso por curiosidad, lo sacamos
+      console.log("✅ El usuario ya es seguro. Redirigiendo al Muro.");
+      next("/muro");
+    } else {
+      // Si todo está en orden -> Pase libre.
+      next();
+    }
   } else {
-    // Si tiene token O la ruta es pública -> Pase.
+    // Si es una ruta pública (como / o /cambiar-clave) -> Pase libre.
     next();
   }
 });

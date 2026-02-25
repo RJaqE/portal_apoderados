@@ -1,11 +1,11 @@
 <script setup>
 import { ref } from 'vue'
-// import axios from 'axios' <--- BORRA ESTO, ya no usamos el axios "crudo"
-import api from '../axios' // <--- NUEVO: Importamos tu archivo axios.js maestro con la URL de Railway
+import { useRouter } from 'vue-router' // ✨ NUEVO: Importamos el enrutador para una navegación ultra rápida
+import api from '../axios' // Tu archivo maestro con la URL de Railway
 
-// import { useRouter } from 'vue-router' <--- BORRA ESTO, NO LO USAREMOS AHORA
+const router = useRouter() // Instanciamos el enrutador
 
-// Variables para el formulario
+// Variables reactivas para el formulario
 const username = ref('')
 const password = ref('')
 const error = ref('')
@@ -16,27 +16,40 @@ const iniciarSesion = async () => {
     cargando.value = true
 
     try {
-        // 1. Pedir la "Pulsera" (Token) a Django
-        // Asegúrate de que esta URL sea correcta (http://localhost:8000 o http://127.0.0.1:8000)
-
-        // 👇 CAMBIO CLAVE: Usamos 'api.post' y solo ponemos 'token/' porque la ruta completa ya vive en tu axios.js
+        // 1. Pedir la "Pulsera" (Tokens) a Django
         const response = await api.post('token/', {
             username: username.value,
             password: password.value
         })
 
-        // 2. Guardar el Token en el "Bolsillo"
-        localStorage.setItem('token', response.data.access)
+        // 2. Guardar el Token en el "Bolsillo" (Navegador)
+        const token = response.data.access
+        localStorage.setItem('token', token)
         localStorage.setItem('refresh_token', response.data.refresh)
 
-        // 3. LA SOLUCIÓN NUCLEAR ☢️
-        // En vez de router.push, forzamos una recarga completa.
-        // Esto mata cualquier pantalla negra "zombie" y limpia la memoria.
-        window.location.href = '/muro'
+        // 3. LA PREGUNTA DE SEGURIDAD 🕵️‍♂️
+        // CORRECCIÓN: Usamos 'quien-soy/' (con guion medio) para que coincida con urls.py
+        const userResponse = await api.get('quien-soy/', {
+            headers: {
+                Authorization: `Bearer ${token}` // Le mostramos la pulsera a Django
+            }
+        })
+
+        // 4. GUARDAR LA MARCA Y REDIRIGIR 🧠
+        const debeCambiarClave = userResponse.data.debe_cambiar_clave
+
+        // Guardamos si es "true" o "false" para que nuestro Guardia de Rutas lo sepa
+        localStorage.setItem('debe_cambiar_clave', debeCambiarClave)
+
+        // Redirección Inteligente (usando router.push para que no parpadee la pantalla)
+        if (debeCambiarClave) {
+            router.push('/primer-ingreso') // ¡Atrapado! Lo mandamos a cambiar clave
+        } else {
+            router.push('/muro') // ¡Pase libre! Usuario antiguo
+        }
 
     } catch (err) {
-        console.error(err)
-        // Manejo de errores un poco más detallado
+        console.error('Error detallado:', err)
         if (err.response && err.response.status === 401) {
             error.value = 'Usuario o contraseña incorrectos ❌'
         } else {
@@ -57,7 +70,7 @@ const iniciarSesion = async () => {
             <form @submit.prevent="iniciarSesion">
                 <div class="campo">
                     <label>Usuario</label>
-                    <input type="text" v-model="username" placeholder="Ej: admin" required />
+                    <input type="text" v-model="username" placeholder="Ej: apoderado1" required />
                 </div>
 
                 <div class="campo">
@@ -76,12 +89,12 @@ const iniciarSesion = async () => {
 </template>
 
 <style scoped>
+/* Estilos limpios y modernos */
 .login-container {
     display: flex;
     justify-content: center;
     align-items: center;
     height: 80vh;
-    /* Ocupa casi toda la pantalla */
 }
 
 .login-box {
@@ -117,6 +130,8 @@ const iniciarSesion = async () => {
     border: 1px solid #ddd;
     border-radius: 5px;
     font-size: 16px;
+    /* Evita que el input se salga de la caja */
+    box-sizing: border-box;
 }
 
 button {
@@ -129,6 +144,7 @@ button {
     font-size: 16px;
     cursor: pointer;
     margin-top: 10px;
+    transition: background-color 0.3s;
 }
 
 button:hover {
@@ -137,10 +153,11 @@ button:hover {
 
 button:disabled {
     background-color: #95a5a6;
+    cursor: not-allowed;
 }
 
 .error-msg {
-    color: red;
+    color: #e74c3c;
     font-weight: bold;
     margin-top: 10px;
 }
