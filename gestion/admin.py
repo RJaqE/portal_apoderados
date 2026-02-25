@@ -1,12 +1,50 @@
 from django.contrib import admin
-from .models import Apoderado, Alumno, ConceptoCobro, Cargo, Abono, AsignacionPago, Noticia, Evento # <--- Asegúrate de importar Noticia y Evento aquí
+from .models import (
+    PerfilUsuario, 
+    Apoderado, 
+    Alumno, 
+    ConceptoCobro, 
+    Cargo, 
+    Abono, 
+    AsignacionPago, 
+    Noticia, 
+    Evento
+)
 
-# Registramos los modelos para que aparezcan en el panel
+# ==============================================================================
+# 1. SEGURIDAD Y PERFILES
+# ==============================================================================
+
+# Usamos un decorador (@) para darle "súperpoderes" a la vista en el panel
+@admin.register(PerfilUsuario)
+class PerfilUsuarioAdmin(admin.ModelAdmin):
+    # list_display: Muestra estas columnas como una tabla en el panel principal
+    list_display = ('usuario', 'debe_cambiar_clave')
+    # list_filter: Agrega un menú a la derecha para filtrar a los que ya la cambiaron
+    list_filter = ('debe_cambiar_clave',)
+
+
+# ==============================================================================
+# 2. ACTORES PRINCIPALES
+# ==============================================================================
+
 admin.site.register(Apoderado)
 admin.site.register(Alumno)
+
+
+# ==============================================================================
+# 3. TESORERÍA Y FINANZAS
+# ==============================================================================
+
 admin.site.register(ConceptoCobro)
-admin.site.register(Evento)
 admin.site.register(Cargo)
 admin.site.register(Abono)
 admin.site.register(AsignacionPago)
-admin.site.register(Noticia) # <--- Registramos Noticia para que sea editable desde el admin
+
+
+# ==============================================================================
+# 4. COMUNICACIÓN Y EVENTOS
+# ==============================================================================
+
+admin.site.register(Noticia)
+admin.site.register(Evento)
