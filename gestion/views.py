@@ -1,10 +1,12 @@
-import threading # 🧵 NUEVO: Para crear hilos paralelos
 import os
+import json
+import threading
+import urllib.request
+
 from django.shortcuts import render
 from django.db.models import Sum
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
-from django.core.mail import send_mail
 
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action, api_view, permission_classes
@@ -41,6 +43,7 @@ from .serializers import (
 # ==============================================================================
 
 # 🎨 PLANTILLA HTML PARA LOS CORREOS (Diseño Premium)
+# Nota: Las triples comillas (""") permiten escribir texto en varias líneas, no es un comentario.
 def generar_correo_html(usuario, enlace):
     return f"""
     <html>
@@ -70,6 +73,7 @@ def generar_correo_html(usuario, enlace):
     """
 
 class SolicitarEnlaceSeguridad(APIView):
+    """ Envía un correo con el código mágico para usuarios nuevos (Primer Ingreso) """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -79,32 +83,43 @@ class SolicitarEnlaceSeguridad(APIView):
         if not nuevo_correo:
             return Response({'error': 'Debes proporcionar un correo electrónico.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Guardamos el correo real del apoderado
         usuario.email = nuevo_correo
         usuario.save()
 
         token = default_token_generator.make_token(usuario)
+        # OJO: Cambiar por la URL real de Netlify cuando pases a producción definitiva
         enlace = f"http://localhost:5173/cambiar-clave?token={token}&uid={usuario.id}"
         mensaje_html = generar_correo_html(usuario, enlace)
         
-        # 🧵 MAGIA: Función interna que enviará el correo en segundo plano
+        # 🧵 MAGIA WEBHOOK: Despacha la info a Make.com en segundo plano
         def enviar_correo_en_hilo():
             try:
-                send_mail(
-                    subject='🔒 Verifica tu correo - Portal Apoderados',
-                    message='Verifica tu correo para crear tu contraseña.',
-                    from_email=os.environ.get('EMAIL_HOST_USER'),
-                    recipient_list=[nuevo_correo],
-                    html_message=mensaje_html,
-                    fail_silently=False,
+                # 👇 URL REAL DE MAKE.COM
+                URL_WEBHOOK_MAKE = "https://hook.us2.make.com/j2ld34kv46topljqtpgng0n6q88bg7oe" 
+                
+                datos = {
+                    "destinatario": nuevo_correo,
+                    "asunto": "🔒 Verifica tu correo - Portal Apoderados",
+                    "html": mensaje_html
+                }
+                
+                datos_json = json.dumps(datos).encode('utf-8')
+                req = urllib.request.Request(
+                    URL_WEBHOOK_MAKE, 
+                    data=datos_json, 
+                    headers={'Content-Type': 'application/json'}
                 )
+                urllib.request.urlopen(req)
+                print("Webhook (Primer Ingreso) enviado con éxito a Make.com")
             except Exception as e:
-                print(f"Error enviando correo en segundo plano: {str(e)}")
+                print(f"Error enviando webhook: {str(e)}")
 
-        # 🚀 Despachamos el hilo y respondemos inmediatamente a Vue
+        # 🚀 Ejecutamos el hilo y respondemos inmediatamente a Vue
         hilo = threading.Thread(target=enviar_correo_en_hilo)
         hilo.start()
 
-        return Response({'mensaje': 'El correo se está enviando. Revisa tu bandeja de entrada en unos segundos.'})
+        return Response({'mensaje': 'Correo enviado exitosamente. Revisa tu bandeja de entrada.'})
 
 
 class ConfirmarCambioClave(APIView):
@@ -135,9 +150,10 @@ class ConfirmarCambioClave(APIView):
         else:
             return Response({'error': 'El enlace es inválido o ha expirado.'}, status=status.HTTP_400_BAD_REQUEST)
 
+
 class RecuperarClaveOlvidada(APIView):
     """ Envía un enlace para cambiar contraseña si el usuario olvidó la suya """
-    permission_classes = [] # Público, porque el usuario no puede iniciar sesión
+    permission_classes = [] # Público
 
     def post(self, request):
         correo = request.data.get('correo')
@@ -152,30 +168,38 @@ class RecuperarClaveOlvidada(APIView):
             # Si lo encontramos, reciclamos la lógica de tokens
             token = default_token_generator.make_token(usuario)
             
-            # OJO: Cuando pases el frontend a producción definitivo, recuerda cambiar localhost:5173 por tu URL de Netlify
+            # OJO: Cambiar por la URL real de Netlify en el futuro
             enlace = f"http://localhost:5173/cambiar-clave?token={token}&uid={usuario.id}"
-            
             mensaje_html = generar_correo_html(usuario, enlace)
 
-            # 🧵 Función interna que enviará el correo en segundo plano
+            # 🧵 MAGIA WEBHOOK
             def enviar_correo_en_hilo():
                 try:
-                    send_mail(
-                        subject='🔑 Recuperación de Contraseña - Portal Apoderados',
-                        message='Has solicitado recuperar tu contraseña.',
-                        from_email=os.environ.get('EMAIL_HOST_USER'),
-                        recipient_list=[correo],
-                        html_message=mensaje_html,
-                        fail_silently=False,
+                    # 👇 URL REAL DE MAKE.COM
+                    URL_WEBHOOK_MAKE = "https://hook.us2.make.com/j2ld34kv46topljqtpgng0n6q88bg7oe" 
+                    
+                    datos = {
+                        "destinatario": correo,
+                        "asunto": "🔑 Recuperación de Contraseña - Portal Apoderados",
+                        "html": mensaje_html
+                    }
+                    
+                    datos_json = json.dumps(datos).encode('utf-8')
+                    req = urllib.request.Request(
+                        URL_WEBHOOK_MAKE, 
+                        data=datos_json, 
+                        headers={'Content-Type': 'application/json'}
                     )
+                    urllib.request.urlopen(req)
+                    print("Webhook (Recuperar Clave) enviado con éxito a Make.com")
                 except Exception as e:
-                    print(f"Error enviando correo de recuperación en segundo plano: {str(e)}")
+                    print(f"Error enviando webhook: {str(e)}")
 
-            # 🚀 Despachamos el hilo para que Google haga lo suyo sin bloquear el servidor
+            # 🚀 Despachamos el hilo
             hilo = threading.Thread(target=enviar_correo_en_hilo)
             hilo.start()
 
-            # Le respondemos a Vue INMEDIATAMENTE (evitando el Timeout de Gunicorn)
+            # Le respondemos a Vue INMEDIATAMENTE
             return Response({'mensaje': 'Enlace enviado si el correo existe.'}) 
         else:
             # 🚨 El correo no existe. Le avisamos a Vue con un código especial.
