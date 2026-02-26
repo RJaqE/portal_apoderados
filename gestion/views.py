@@ -89,7 +89,7 @@ class SolicitarEnlaceSeguridad(APIView):
 
         token = default_token_generator.make_token(usuario)
         # OJO: Cambiar por la URL real de Netlify cuando pases a producción definitiva
-        enlace = f"http://localhost:5173/cambiar-clave?token={token}&uid={usuario.id}"
+        enlace = f"https://portal-apoderados.netlify.app/cambiar-clave?token={token}&uid={usuario.id}"
         mensaje_html = generar_correo_html(usuario, enlace)
         
         # 🧵 MAGIA WEBHOOK: Despacha la info a Make.com en segundo plano
@@ -169,7 +169,7 @@ class RecuperarClaveOlvidada(APIView):
             token = default_token_generator.make_token(usuario)
             
             # OJO: Cambiar por la URL real de Netlify en el futuro
-            enlace = f"http://localhost:5173/cambiar-clave?token={token}&uid={usuario.id}"
+            enlace = f"https://portal-apoderados.netlify.app/cambiar-clave?token={token}&uid={usuario.id}"
             mensaje_html = generar_correo_html(usuario, enlace)
 
             # 🧵 MAGIA WEBHOOK
