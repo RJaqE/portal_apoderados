@@ -63,10 +63,18 @@ class AlumnoSerializer(serializers.ModelSerializer):
     
     # Campo calculado: "Jaque, Pablo"
     nombre_lista = serializers.SerializerMethodField()
+    
+    # 👇 NUEVO: Campos extraídos del Apoderado asociado 👇
+    apoderado_nombre = serializers.SerializerMethodField()
+    apoderado_email = serializers.SerializerMethodField()
 
     class Meta:
         model = Alumno
-        fields = ['id', 'nombre_completo', 'rut', 'curso', 'cargos', 'abonos', 'deuda_por_pagar', 'saldo_a_favor', 'nombre_lista']
+        fields = [
+            'id', 'nombre_completo', 'rut', 'curso', 'cargos', 'abonos', 
+            'deuda_por_pagar', 'saldo_a_favor', 'nombre_lista',
+            'apoderado_nombre', 'apoderado_email' # <- Agregamos los campos aquí
+        ]
 
     def get_deuda_por_pagar(self, obj):
         return sum((c.monto_total - c.monto_pagado) for c in obj.cargos.all())
@@ -74,27 +82,38 @@ class AlumnoSerializer(serializers.ModelSerializer):
     def get_saldo_a_favor(self, obj):
         return sum(a.saldo_disponible for a in obj.abonos.all())
 
-    # 👇 AQUÍ ESTÁ LA MAGIA PARA ORDENAR POR APELLIDO 👇
+    # Magia para ordenar por apellido
     def get_nombre_lista(self, obj):
         if not obj.nombre_completo:
             return "Sin Nombre"
             
-        # .split() sin argumentos maneja dobles espacios automáticamente
         partes = obj.nombre_completo.strip().split() 
 
-        # CASO 1: "Pablo Jaque" (2 palabras)
         if len(partes) == 2:
-            return f"{partes[1]}, {partes[0]}" # -> Jaque, Pablo
-        
-        # CASO 2: "Juan Pérez González" (3 o más)
+            return f"{partes[1]}, {partes[0]}" 
         elif len(partes) >= 3:
-            # Asumimos los 2 últimos son apellidos
             apellidos = f"{partes[-2]} {partes[-1]}"
             nombres = " ".join(partes[:-2])
-            return f"{apellidos}, {nombres}" # -> Pérez González, Juan
+            return f"{apellidos}, {nombres}" 
             
-        # CASO 3: "Pablo" (1 palabra)
         return obj.nombre_completo.strip()
+
+    # 👇 NUEVO: Lógica para rescatar los datos del apoderado
+    def get_apoderado_nombre(self, obj):
+        try:
+            user = obj.apoderado.user
+            if user.first_name and user.last_name:
+                return f"{user.first_name} {user.last_name}"
+            return user.username
+        except AttributeError:
+            return "Sin Apoderado Asignado"
+
+    def get_apoderado_email(self, obj):
+        try:
+            email = obj.apoderado.user.email
+            return email if email else "Sin Email Registrado"
+        except AttributeError:
+            return "---"
 
 # === MURO ===
 class NoticiaSerializer(serializers.ModelSerializer):

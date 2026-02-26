@@ -6,6 +6,7 @@ import MisFinanzas from "../views/MisFinanzas.vue";
 // === IMPORTS DE LAS VISTAS DE PODER ===
 import TesoreriaDashboard from "../views/Tesoreria.vue";
 import PanelGestion from "../views/PanelTesoreroView.vue";
+import ListaCurso from "../views/ListaCurso.vue";
 
 // === IMPORTS DE SEGURIDAD ===
 import PrimerIngreso from "../views/PrimerIngreso.vue";
@@ -73,6 +74,12 @@ const router = createRouter({
       path: "/gestion-total",
       name: "PanelGestion",
       component: PanelGestion,
+      meta: { requiresAuth: true }, // 🔒 Privado
+    },
+    {
+      path: "/lista-curso",
+      name: "ListaCurso",
+      component: ListaCurso,
       meta: { requiresAuth: true }, // 🔒 Privado
     },
   ],
