@@ -318,12 +318,19 @@ def quien_soy(request):
     data['es_staff'] = request.user.is_staff          
     data['es_admin'] = request.user.is_superuser      
     
-    # 👇 ESTO ES CLAVE: Le avisamos a Vue si el usuario está obligado a cambiar clave
-    try:
-        data['debe_cambiar_clave'] = request.user.perfil.debe_cambiar_clave
-    except:
-        # Si por algún motivo el usuario no tiene perfil, lo dejamos pasar por defecto
-        data['debe_cambiar_clave'] = False 
+    # =========================================================
+    # ⚠️ MODO TESTING: BYPASS DE PRIMER INGRESO ACTIVADO
+    # =========================================================
+    # Comentamos la lógica real para que no te pida correos al crear usuarios de prueba.
+    # Cuando los apoderados reales vayan a entrar, BORRA el False de abajo y 
+    # DESCOMENTA el bloque try/except.
+    
+    # try:
+    #     data['debe_cambiar_clave'] = request.user.perfil.debe_cambiar_clave
+    # except:
+    #     data['debe_cambiar_clave'] = False 
+        
+    data['debe_cambiar_clave'] = False # 🔥 Dejamos pasar a todos directamente 🔥
 
     return Response(data)
 
