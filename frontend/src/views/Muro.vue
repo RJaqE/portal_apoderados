@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import api from '../axios'
 import Swal from 'sweetalert2'
 
-// === ESTADO ===
+// === ESTADO PRINCIPAL ===
 const noticias = ref([])
 const eventos = ref([])
 const cargando = ref(true)
@@ -11,7 +11,75 @@ const busqueda = ref('')
 const esAdmin = ref(false)
 const noticiaSeleccionada = ref(null)
 
-// === VARIABLES PARA CREAR/EDITAR ===
+// Variable para controlar la navegación del menú izquierdo
+const vistaActiva = ref('noticias') // Puede ser 'noticias' o 'horario'
+
+// === DATOS DEL HORARIO 2025 ===
+const horarioSemana = ref([
+    {
+        dia: 'Lunes',
+        bloques: [
+            { tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Biología CN' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Lengua y Literatura' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Música' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Matemática' }
+        ]
+    },
+    {
+        dia: 'Martes',
+        bloques: [
+            { tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Biología CN' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Física CN' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Historia, Geografía y CS' },
+            { tipo: 'almuerzo', tiempo: '13:00 - 13:45', materia: '🍽️ Almuerzo' },
+            { tipo: 'clase', tiempo: '13:45 - 14:25', materia: 'Orientación' },
+            { tipo: 'clase', tiempo: '14:35 - 16:00', materia: 'Inglés' }
+        ]
+    },
+    {
+        dia: 'Miércoles',
+        bloques: [
+            { tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Lengua y Literatura' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Ed. Física y Salud' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Matemática' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Historia, Geografía y CS' }
+        ]
+    },
+    {
+        dia: 'Jueves',
+        bloques: [
+            { tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Inglés' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Lengua y Literatura' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Tecnología' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Matemática' }
+        ]
+    },
+    {
+        dia: 'Viernes',
+        bloques: [
+            { tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Química CN' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Artes Visuales' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Lengua y Literatura' },
+            { tipo: 'recreo' },
+            { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Matemática' }
+        ]
+    }
+])
+
+// === VARIABLES PARA CREAR/EDITAR NOTICIAS ===
 const mostrarModalForm = ref(false)
 const modoEdicion = ref(false)
 const idEdicion = ref(null)
@@ -23,9 +91,9 @@ const formulario = ref({
     imagen: null
 })
 const imagenPreview = ref(null)
-const eliminarImagen = ref(false) // 🚩 NUEVO: Interruptor para borrar imagen existente
+const eliminarImagen = ref(false) // Interruptor para borrar imagen existente
 
-// === PERMISOS Y CARGA ===
+// === PERMISOS Y CARGA DE DATOS ===
 const verificarPermisos = async () => {
     try {
         const response = await api.get('quien-soy/')
@@ -49,13 +117,13 @@ const cargarDatos = async () => {
     }
 }
 
-// === LÓGICA DEL FORMULARIO (CREAR Y EDITAR) ===
+// === LÓGICA DEL FORMULARIO (CREAR Y EDITAR NOTICIAS) ===
 const abrirModalCrear = () => {
     modoEdicion.value = false
     idEdicion.value = null
     formulario.value = { titulo: '', contenido: '', etiqueta: 'GENERAL', imagen: null }
     imagenPreview.value = null
-    eliminarImagen.value = false // 🚩 NUEVO: Reiniciar al crear
+    eliminarImagen.value = false
     mostrarModalForm.value = true
     document.body.style.overflow = 'hidden'
 }
@@ -69,7 +137,7 @@ const abrirModalEditar = (noticia) => {
         etiqueta: noticia.etiqueta,
         imagen: null
     }
-    eliminarImagen.value = false // 🚩 NUEVO: Reiniciar al editar
+    eliminarImagen.value = false
 
     if (noticia.imagen) {
         imagenPreview.value = fixImagenUrl(noticia.imagen)
@@ -90,11 +158,10 @@ const procesarImagen = (event) => {
     if (archivo) {
         formulario.value.imagen = archivo
         imagenPreview.value = URL.createObjectURL(archivo)
-        eliminarImagen.value = false // Si sube una nueva, cancelamos el borrado
+        eliminarImagen.value = false
     }
 }
 
-// 🚩 NUEVO: Función para ocultar la imagen actual y preparar el borrado
 const prepararBorradoImagen = () => {
     imagenPreview.value = null
     formulario.value.imagen = null
@@ -112,12 +179,9 @@ const guardarNoticia = async () => {
     formData.append('contenido', formulario.value.contenido)
     formData.append('etiqueta', formulario.value.etiqueta)
 
-    // 🚩 NUEVO: Lógica de imagen
     if (formulario.value.imagen) {
-        // Subió una imagen nueva
         formData.append('imagen', formulario.value.imagen)
     } else if (modoEdicion.value && eliminarImagen.value) {
-        // Le decimos a Django: "Vacía el campo de la imagen"
         formData.append('imagen', '')
     }
 
@@ -162,7 +226,7 @@ const borrarNoticia = async (id) => {
     }
 }
 
-// === UTILIDADES ===
+// === UTILIDADES DE NOTICIAS ===
 const noticiasFiltradas = computed(() => {
     if (!busqueda.value) return noticias.value
     return noticias.value.filter(n =>
@@ -195,7 +259,7 @@ onMounted(() => {
     verificarPermisos()
 })
 
-// === VARIABLES PARA EVENTOS (NUEVO) ===
+// === VARIABLES Y LÓGICA PARA EVENTOS ===
 const mostrarModalEvento = ref(false)
 const formEvento = ref({
     titulo: '',
@@ -254,8 +318,12 @@ const borrarEvento = async (id) => {
             <div class="menu-muro">
                 <h3>📌 Menú</h3>
                 <ul>
-                    <li class="activo">📰 Noticias</li>
-                    <li class="inactivo">📅 Calendario <small>(Pronto)</small></li>
+                    <li :class="{ activo: vistaActiva === 'noticias' }" @click="vistaActiva = 'noticias'">
+                        📰 Noticias
+                    </li>
+                    <li :class="{ activo: vistaActiva === 'horario' }" @click="vistaActiva = 'horario'">
+                        📅 Horario
+                    </li>
                     <li class="inactivo">📊 Encuestas <small>(Pronto)</small></li>
                     <li class="inactivo">📁 Documentos <small>(Pronto)</small></li>
                 </ul>
@@ -264,61 +332,95 @@ const borrarEvento = async (id) => {
 
         <main class="feed-central">
 
-            <div class="feed-header">
-                <div class="titulo-row">
-                    <h2>📢 Muro Informativo</h2>
-                    <button v-if="esAdmin" class="btn-crear" @click="abrirModalCrear">
-                        + Nueva
-                    </button>
-                </div>
-                <div class="buscador-row">
-                    <input v-model="busqueda" type="text" placeholder="🔍 Buscar noticias..." />
-                </div>
-            </div>
+            <div v-if="vistaActiva === 'noticias'" class="vista-animada">
 
-            <div v-if="cargando" class="loading">Cargando...</div>
-
-            <div v-else-if="noticiasFiltradas.length === 0" class="sin-noticias">
-                <p>No se encontraron noticias. 🦗</p>
-            </div>
-
-            <div v-else class="lista-noticias">
-                <div v-for="noticia in noticiasFiltradas" :key="noticia.id" class="tarjeta-noticia"
-                    @click="abrirNoticia(noticia)">
-
-                    <div v-if="esAdmin" class="acciones-admin">
-                        <button class="btn-accion btn-editar" @click.stop="abrirModalEditar(noticia)" title="Editar">
-                            ✏️
-                        </button>
-                        <button class="btn-accion btn-borrar" @click.stop="borrarNoticia(noticia.id)" title="Borrar">
-                            🗑️
+                <div class="feed-header">
+                    <div class="titulo-row">
+                        <h2>📢 Muro Informativo</h2>
+                        <button v-if="esAdmin" class="btn-crear" @click="abrirModalCrear">
+                            + Nueva
                         </button>
                     </div>
-
-                    <div v-if="noticia.imagen" class="imagen-banner">
-                        <img :src="fixImagenUrl(noticia.imagen)" alt="Imagen noticia" />
+                    <div class="buscador-row">
+                        <input v-model="busqueda" type="text" placeholder="🔍 Buscar noticias..." />
                     </div>
+                </div>
 
-                    <div class="contenido-tarjeta">
-                        <div class="meta-data">
-                            <span class="etiqueta" :style="{ backgroundColor: obtenerColorEtiqueta(noticia.etiqueta) }">
-                                {{ noticia.etiqueta }}
-                            </span>
-                            <span class="fecha">{{ new Date(noticia.fecha_creacion).toLocaleDateString() }}</span>
+                <div v-if="cargando" class="loading">Cargando...</div>
+
+                <div v-else-if="noticiasFiltradas.length === 0" class="sin-noticias">
+                    <p>No se encontraron noticias. 🦗</p>
+                </div>
+
+                <div v-else class="lista-noticias">
+                    <div v-for="noticia in noticiasFiltradas" :key="noticia.id" class="tarjeta-noticia"
+                        @click="abrirNoticia(noticia)">
+
+                        <div v-if="esAdmin" class="acciones-admin">
+                            <button class="btn-accion btn-editar" @click.stop="abrirModalEditar(noticia)"
+                                title="Editar">✏️</button>
+                            <button class="btn-accion btn-borrar" @click.stop="borrarNoticia(noticia.id)"
+                                title="Borrar">🗑️</button>
                         </div>
 
-                        <h3 class="titulo-noticia">{{ noticia.titulo }}</h3>
+                        <div v-if="noticia.imagen" class="imagen-banner">
+                            <img :src="fixImagenUrl(noticia.imagen)" alt="Imagen noticia" />
+                        </div>
 
-                        <p class="texto-preview">{{ noticia.contenido }}</p>
+                        <div class="contenido-tarjeta">
+                            <div class="meta-data">
+                                <span class="etiqueta"
+                                    :style="{ backgroundColor: obtenerColorEtiqueta(noticia.etiqueta) }">
+                                    {{ noticia.etiqueta }}
+                                </span>
+                                <span class="fecha">{{ new Date(noticia.fecha_creacion).toLocaleDateString() }}</span>
+                            </div>
 
-                        <button class="btn-leer-mas" @click.stop="abrirNoticia(noticia)">Leer más...</button>
+                            <h3 class="titulo-noticia">{{ noticia.titulo }}</h3>
+                            <p class="texto-preview">{{ noticia.contenido }}</p>
+                            <button class="btn-leer-mas" @click.stop="abrirNoticia(noticia)">Leer más...</button>
 
-                        <div class="autor">
-                            <small>Por: {{ noticia.autor_nombre }}</small>
+                            <div class="autor">
+                                <small>Por: {{ noticia.autor_nombre }}</small>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <div v-else-if="vistaActiva === 'horario'" class="vista-animada">
+                <div class="feed-header">
+                    <h2>📅 Horario Octavo Básico 2025</h2>
+                    <p style="color: #7f8c8d; font-size: 0.95rem; margin-top: 5px;">
+                        Desliza hacia abajo en celulares para ver todos los días.
+                    </p>
+                </div>
+
+                <div class="horario-falsa-tabla">
+                    <div v-for="dia in horarioSemana" :key="dia.dia" class="dia-columna">
+                        <div class="dia-titulo">{{ dia.dia }}</div>
+
+                        <div class="bloques-container">
+                            <div v-for="(bloque, index) in dia.bloques" :key="index">
+
+                                <div v-if="bloque.tipo === 'clase'" class="bloque-clase">
+                                    <span class="tiempo">{{ bloque.tiempo }}</span>
+                                    <span class="materia">{{ bloque.materia }}</span>
+                                </div>
+
+                                <div v-else-if="bloque.tipo === 'recreo'" class="bloque-recreo"></div>
+
+                                <div v-else-if="bloque.tipo === 'almuerzo'" class="bloque-almuerzo">
+                                    <span class="tiempo">{{ bloque.tiempo }}</span>
+                                    <span class="materia">{{ bloque.materia }}</span>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </main>
 
         <aside class="sidebar-right">
@@ -377,7 +479,6 @@ const borrarEvento = async (id) => {
                         }}</span>
 
                     <h2>{{ noticiaSeleccionada.titulo }}</h2>
-
                     <p class="texto-completo">{{ noticiaSeleccionada.contenido }}</p>
 
                     <div class="modal-footer">
@@ -396,7 +497,6 @@ const borrarEvento = async (id) => {
                 </div>
 
                 <div class="modal-cuerpo form-crear">
-
                     <div class="campo">
                         <label>Título:</label>
                         <input v-model="formulario.titulo" type="text" placeholder="Ej: Reunión de Apoderados..." />
@@ -443,7 +543,6 @@ const borrarEvento = async (id) => {
                     <button class="btn-guardar" @click="guardarNoticia">
                         {{ modoEdicion ? 'Guardar Cambios 💾' : 'Publicar Noticia 🚀' }}
                     </button>
-
                 </div>
             </div>
         </div>
@@ -571,6 +670,115 @@ const borrarEvento = async (id) => {
     outline: none;
 }
 
+.vista-animada {
+    animation: fadeIn 0.3s ease;
+}
+
+/* === PESTAÑA HORARIO (TABLA FALSA RESPONSIVE) === */
+.horario-falsa-tabla {
+    display: grid;
+    /* En PC: 5 columnas pegadas */
+    grid-template-columns: repeat(5, 1fr);
+    background: white;
+    border: 1px solid #bdc3c7;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.dia-columna {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #ecf0f1;
+}
+
+.dia-columna:last-child {
+    border-right: none;
+}
+
+.dia-titulo {
+    background: #2c3e50;
+    color: white;
+    text-align: center;
+    padding: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.95rem;
+    border-bottom: 2px solid #bdc3c7;
+}
+
+.bloques-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #fdfefe;
+    justify-content: flex-start;
+}
+
+.bloque-clase {
+    padding: 6px 4px; /* 🚩 Redujimos el relleno interno */
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 60px; /* 🚩 Altura mucho más compacta (antes era 95px) */
+}
+
+.bloque-clase:hover {
+    background: #f4f6f9;
+}
+
+.bloque-clase .tiempo {
+    display: block;
+    font-size: 0.7rem; /* 🚩 Letra un pelín más pequeña */
+    color: #7f8c8d;
+    margin-bottom: 2px;
+}
+
+.bloque-clase .materia {
+    display: block;
+    font-size: 0.85rem;
+    color: #2c3e50;
+    font-weight: bold;
+    line-height: 1.1; /* 🚩 Junta las palabras si ocupan dos líneas */
+}
+
+/* Recreo más sutil */
+.bloque-recreo {
+    height: 3px; /* 🚩 Línea más delgada */
+    background-color: #f1c40f;
+    opacity: 0.7;
+    width: 100%;
+    margin: 0;
+}
+
+/* Almuerzo compacto */
+.bloque-almuerzo {
+    background: #a9dfbf;
+    padding: 4px;
+    text-align: center;
+    border-top: 1px solid #7dcea0;
+    border-bottom: 1px solid #7dcea0;
+    height: 50px; /* 🚩 Altura reducida para el almuerzo */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.bloque-almuerzo .tiempo {
+    display: block;
+    font-size: 0.7rem;
+    color: #145a32;
+    margin-bottom: 2px;
+}
+
+.bloque-almuerzo .materia {
+    display: block;
+    font-size: 0.8rem;
+    color: #145a32;
+    font-weight: bold;
+}
+
 /* === TARJETAS DE NOTICIAS === */
 .tarjeta-noticia {
     background: white;
@@ -664,7 +872,7 @@ const borrarEvento = async (id) => {
     color: #bdc3c7;
 }
 
-/* Botón Crear */
+/* Botones Acción / Admin */
 .btn-crear {
     background: #2ecc71;
     color: white;
@@ -679,7 +887,6 @@ const borrarEvento = async (id) => {
     background: #27ae60;
 }
 
-/* 🚀 ESTILOS BOTONES ADMIN (NUEVO) */
 .acciones-admin {
     position: absolute;
     top: 10px;
@@ -804,7 +1011,7 @@ const borrarEvento = async (id) => {
     font-size: 0.8rem;
 }
 
-/* === ESTILOS MODAL === */
+/* === ESTILOS MODALES === */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -882,7 +1089,7 @@ const borrarEvento = async (id) => {
     white-space: pre-wrap;
 }
 
-/* === ESTILOS FORMULARIO (NUEVO) === */
+/* === ESTILOS FORMULARIO === */
 .modal-header-crear {
     padding: 20px 30px;
     border-bottom: 1px solid #eee;
@@ -910,7 +1117,8 @@ const borrarEvento = async (id) => {
 
 .campo input[type="text"],
 .campo select,
-.campo textarea {
+.campo textarea,
+.campo input[type="datetime-local"] {
     width: 100%;
     padding: 12px;
     border: 2px solid #ecf0f1;
@@ -993,7 +1201,6 @@ const borrarEvento = async (id) => {
 
 .item-evento-relativo {
     position: relative;
-    /* Para poder posicionar la X absoluta dentro del li */
 }
 
 .btn-borrar-evento {
@@ -1006,7 +1213,6 @@ const borrarEvento = async (id) => {
     color: #e74c3c;
     cursor: pointer;
     opacity: 0.3;
-    /* Semitransparente para no estorbar visualmente */
     transition: opacity 0.2s, transform 0.2s;
     font-size: 0.8rem;
     padding: 5px;
@@ -1014,7 +1220,6 @@ const borrarEvento = async (id) => {
 
 .item-evento-relativo:hover .btn-borrar-evento {
     opacity: 1;
-    /* Aparece al pasar el mouse por encima del evento */
 }
 
 .btn-borrar-evento:hover {
@@ -1023,10 +1228,9 @@ const borrarEvento = async (id) => {
 
 .modal-sm {
     max-width: 400px;
-    /* Hacemos el modal de evento un poco más angosto que el de noticias */
 }
 
-/* 🚩 ESTILOS NUEVOS PARA BORRAR IMAGEN */
+/* BOTÓN BORRAR IMAGEN */
 .btn-quitar-imagen {
     background: #ffeaa7;
     border: 1px solid #f1c40f;
@@ -1075,7 +1279,7 @@ const borrarEvento = async (id) => {
     }
 }
 
-/* RESPONSIVE */
+/* MAGIA RESPONSIVE PARA CELULARES */
 @media (max-width: 900px) {
     .muro-layout {
         grid-template-columns: 1fr;
@@ -1085,7 +1289,25 @@ const borrarEvento = async (id) => {
     .sidebar-right {
         display: none;
     }
+
+    .horario-falsa-tabla {
+        /* En móviles: 1 sola columna. Los días se apilan uno abajo del otro */
+        grid-template-columns: 1fr;
+        border: none;
+        box-shadow: none;
+        background: transparent;
+        gap: 15px;
+    }
+
+    .dia-columna {
+        border: 1px solid #bdc3c7;
+        border-radius: 8px;
+        background: white;
+        overflow: hidden;
+    }
+
+    .bloque-clase {
+        border-bottom: 1px dashed #ecf0f1;
+    }
 }
-
-
 </style>
