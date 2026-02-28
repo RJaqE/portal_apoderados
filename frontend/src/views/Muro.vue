@@ -13,7 +13,7 @@ const noticiaSeleccionada = ref(null)
 
 // === VARIABLES PARA CREAR/EDITAR ===
 const mostrarModalForm = ref(false)
-const modoEdicion = ref(false) // 🚩 True = Editando, False = Creando
+const modoEdicion = ref(false)
 const idEdicion = ref(null)
 
 const formulario = ref({
@@ -23,6 +23,7 @@ const formulario = ref({
     imagen: null
 })
 const imagenPreview = ref(null)
+const eliminarImagen = ref(false) // 🚩 NUEVO: Interruptor para borrar imagen existente
 
 // === PERMISOS Y CARGA ===
 const verificarPermisos = async () => {
@@ -52,9 +53,9 @@ const cargarDatos = async () => {
 const abrirModalCrear = () => {
     modoEdicion.value = false
     idEdicion.value = null
-    // Limpiamos el formulario para empezar de cero
     formulario.value = { titulo: '', contenido: '', etiqueta: 'GENERAL', imagen: null }
     imagenPreview.value = null
+    eliminarImagen.value = false // 🚩 NUEVO: Reiniciar al crear
     mostrarModalForm.value = true
     document.body.style.overflow = 'hidden'
 }
@@ -62,14 +63,14 @@ const abrirModalCrear = () => {
 const abrirModalEditar = (noticia) => {
     modoEdicion.value = true
     idEdicion.value = noticia.id
-    // Copiamos los datos existentes al formulario
     formulario.value = {
         titulo: noticia.titulo,
         contenido: noticia.contenido,
         etiqueta: noticia.etiqueta,
-        imagen: null // Null porque si no sube nada nuevo, mantenemos la vieja en el backend
+        imagen: null
     }
-    // Mostramos la imagen actual (si tiene)
+    eliminarImagen.value = false // 🚩 NUEVO: Reiniciar al editar
+
     if (noticia.imagen) {
         imagenPreview.value = fixImagenUrl(noticia.imagen)
     } else {
@@ -89,7 +90,15 @@ const procesarImagen = (event) => {
     if (archivo) {
         formulario.value.imagen = archivo
         imagenPreview.value = URL.createObjectURL(archivo)
+        eliminarImagen.value = false // Si sube una nueva, cancelamos el borrado
     }
+}
+
+// 🚩 NUEVO: Función para ocultar la imagen actual y preparar el borrado
+const prepararBorradoImagen = () => {
+    imagenPreview.value = null
+    formulario.value.imagen = null
+    eliminarImagen.value = true
 }
 
 const guardarNoticia = async () => {
@@ -103,29 +112,30 @@ const guardarNoticia = async () => {
     formData.append('contenido', formulario.value.contenido)
     formData.append('etiqueta', formulario.value.etiqueta)
 
+    // 🚩 NUEVO: Lógica de imagen
     if (formulario.value.imagen) {
+        // Subió una imagen nueva
         formData.append('imagen', formulario.value.imagen)
+    } else if (modoEdicion.value && eliminarImagen.value) {
+        // Le decimos a Django: "Vacía el campo de la imagen"
+        formData.append('imagen', '')
     }
 
     try {
         Swal.showLoading()
 
         if (modoEdicion.value) {
-            // === MODO EDITAR (PATCH) ===
             const response = await api.patch(`noticias/${idEdicion.value}/`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             })
-            // Buscamos la noticia antigua en la lista y la reemplazamos por la nueva
             const index = noticias.value.findIndex(n => n.id === idEdicion.value)
             if (index !== -1) noticias.value[index] = response.data
             Swal.fire('¡Actualizado!', 'La noticia fue corregida', 'success')
 
         } else {
-            // === MODO CREAR (POST) ===
             const response = await api.post('noticias/', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             })
-            // La ponemos al principio de la lista
             noticias.value.unshift(response.data)
             Swal.fire('¡Publicado!', 'Noticia creada con éxito', 'success')
         }
@@ -189,7 +199,7 @@ onMounted(() => {
 const mostrarModalEvento = ref(false)
 const formEvento = ref({
     titulo: '',
-    fecha: '' // Formato datetime-local
+    fecha: ''
 })
 
 const abrirModalEvento = () => {
@@ -212,7 +222,6 @@ const guardarEvento = async () => {
         Swal.showLoading()
         const response = await api.post('eventos/', formEvento.value)
         eventos.value.push(response.data)
-        // Reordenar eventos por fecha ascendente
         eventos.value.sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
 
         Swal.fire('¡Agendado!', 'El evento se programó con éxito', 'success')
@@ -337,7 +346,8 @@ const borrarEvento = async (id) => {
                                 {{ new Date(evento.fecha).toLocaleDateString('es-CL', { month: 'short' }) }} -
                                 {{ new Date(evento.fecha).toLocaleTimeString('es-CL', {
                                     hour: '2-digit',
-                                    minute: '2-digit', hour12: false }) }} hrs
+                                    minute: '2-digit', hour12: false
+                                }) }} hrs
                             </small>
                         </div>
 
@@ -364,7 +374,7 @@ const borrarEvento = async (id) => {
                         {{ noticiaSeleccionada.etiqueta }}
                     </span>
                     <span class="fecha-modal">{{ new Date(noticiaSeleccionada.fecha_creacion).toLocaleDateString()
-                    }}</span>
+                        }}</span>
 
                     <h2>{{ noticiaSeleccionada.titulo }}</h2>
 
@@ -405,10 +415,22 @@ const borrarEvento = async (id) => {
 
                     <div class="campo">
                         <label>Imagen {{ modoEdicion ? '(Subir nueva para reemplazar)' : '(Opcional)' }}:</label>
-                        <input type="file" @change="procesarImagen" accept="image/*" />
 
-                        <div v-if="imagenPreview" class="preview-box">
+                        <div v-if="modoEdicion && imagenPreview && !eliminarImagen" style="margin-bottom: 10px;">
+                            <button class="btn-quitar-imagen" @click="prepararBorradoImagen">
+                                🗑️ Quitar imagen actual
+                            </button>
+                        </div>
+
+                        <input v-if="!eliminarImagen || !modoEdicion" type="file" @change="procesarImagen"
+                            accept="image/*" />
+
+                        <div v-if="imagenPreview && !eliminarImagen" class="preview-box">
                             <img :src="imagenPreview" alt="Preview" />
+                        </div>
+
+                        <div v-if="eliminarImagen" class="mensaje-borrado">
+                            <small>⚠️ La imagen actual será eliminada al guardar los cambios.</small>
                         </div>
                     </div>
 
@@ -1004,6 +1026,33 @@ const borrarEvento = async (id) => {
     /* Hacemos el modal de evento un poco más angosto que el de noticias */
 }
 
+/* 🚩 ESTILOS NUEVOS PARA BORRAR IMAGEN */
+.btn-quitar-imagen {
+    background: #ffeaa7;
+    border: 1px solid #f1c40f;
+    color: #d35400;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.btn-quitar-imagen:hover {
+    background: #f1c40f;
+    color: white;
+}
+
+.mensaje-borrado {
+    margin-top: 10px;
+    color: #e74c3c;
+    font-style: italic;
+    background: #fadbd8;
+    padding: 8px;
+    border-radius: 4px;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -1037,4 +1086,6 @@ const borrarEvento = async (id) => {
         display: none;
     }
 }
+
+
 </style>
