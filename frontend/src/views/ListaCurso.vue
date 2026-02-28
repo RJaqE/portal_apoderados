@@ -11,7 +11,7 @@ const cargarAlumnos = async () => {
     try {
         // Como tu backend ya sabe si el que pide es Staff o no, 
         // si eres de la Directiva, te enviará la lista completa automáticamente.
-        const response = await api.get('alumnos/')
+        const response = await api.get('mis-alumnos/')
         alumnos.value = response.data
     } catch (err) {
         console.error('Error cargando la lista de alumnos:', err)
