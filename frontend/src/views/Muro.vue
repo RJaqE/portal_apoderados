@@ -14,6 +14,15 @@ const noticiaSeleccionada = ref(null)
 // Variable para controlar la navegación del menú izquierdo
 const vistaActiva = ref('noticias') // Puede ser 'noticias' o 'horario'
 
+// 🚩 NUEVO: Control del menú flotante móvil
+const menuMovilAbierto = ref(false)
+
+const seleccionarVista = (vista) => {
+    vistaActiva.value = vista
+    menuMovilAbierto.value = false // Cierra el menú automáticamente al elegir
+    window.scrollTo({ top: 0, behavior: 'smooth' }) // Sube la pantalla suavemente
+}
+
 // === DATOS DEL HORARIO 2025 ===
 const horarioSemana = ref([
     {
@@ -332,6 +341,7 @@ const borrarEvento = async (id) => {
 
         <main class="feed-central">
 
+
             <div v-if="vistaActiva === 'noticias'" class="vista-animada">
 
                 <div class="feed-header">
@@ -476,7 +486,7 @@ const borrarEvento = async (id) => {
                         {{ noticiaSeleccionada.etiqueta }}
                     </span>
                     <span class="fecha-modal">{{ new Date(noticiaSeleccionada.fecha_creacion).toLocaleDateString()
-                        }}</span>
+                    }}</span>
 
                     <h2>{{ noticiaSeleccionada.titulo }}</h2>
                     <p class="texto-completo">{{ noticiaSeleccionada.contenido }}</p>
@@ -569,6 +579,27 @@ const borrarEvento = async (id) => {
                     <button class="btn-guardar" @click="guardarEvento">Guardar Evento 🚀</button>
                 </div>
             </div>
+        </div>
+
+        <div class="contenedor-menu-flotante">
+            <div v-if="menuMovilAbierto" class="overlay-menu-movil" @click="menuMovilAbierto = false"></div>
+            
+            <div :class="['opciones-flotantes', { 'abierto': menuMovilAbierto }]">
+                <ul>
+                    <li :class="{ activo: vistaActiva === 'noticias' }" @click="seleccionarVista('noticias')">
+                        📰 Noticias
+                    </li>
+                    <li :class="{ activo: vistaActiva === 'horario' }" @click="seleccionarVista('horario')">
+                        📅 Horario
+                    </li>
+                    <li class="inactivo">📊 Encuestas <small>(Pronto)</small></li>
+                    <li class="inactivo">📁 Documentos <small>(Pronto)</small></li>
+                </ul>
+            </div>
+
+            <button class="btn-fab" @click="menuMovilAbierto = !menuMovilAbierto">
+                {{ menuMovilAbierto ? '✖ Cerrar' : '☰ Menú' }}
+            </button>
         </div>
 
     </div>
@@ -716,12 +747,14 @@ const borrarEvento = async (id) => {
 }
 
 .bloque-clase {
-    padding: 6px 4px; /* 🚩 Redujimos el relleno interno */
+    padding: 6px 4px;
+    /* 🚩 Redujimos el relleno interno */
     text-align: center;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    height: 60px; /* 🚩 Altura mucho más compacta (antes era 95px) */
+    height: 60px;
+    /* 🚩 Altura mucho más compacta (antes era 95px) */
 }
 
 .bloque-clase:hover {
@@ -730,7 +763,8 @@ const borrarEvento = async (id) => {
 
 .bloque-clase .tiempo {
     display: block;
-    font-size: 0.7rem; /* 🚩 Letra un pelín más pequeña */
+    font-size: 0.7rem;
+    /* 🚩 Letra un pelín más pequeña */
     color: #7f8c8d;
     margin-bottom: 2px;
 }
@@ -740,12 +774,14 @@ const borrarEvento = async (id) => {
     font-size: 0.85rem;
     color: #2c3e50;
     font-weight: bold;
-    line-height: 1.1; /* 🚩 Junta las palabras si ocupan dos líneas */
+    line-height: 1.1;
+    /* 🚩 Junta las palabras si ocupan dos líneas */
 }
 
 /* Recreo más sutil */
 .bloque-recreo {
-    height: 3px; /* 🚩 Línea más delgada */
+    height: 3px;
+    /* 🚩 Línea más delgada */
     background-color: #f1c40f;
     opacity: 0.7;
     width: 100%;
@@ -759,7 +795,8 @@ const borrarEvento = async (id) => {
     text-align: center;
     border-top: 1px solid #7dcea0;
     border-bottom: 1px solid #7dcea0;
-    height: 50px; /* 🚩 Altura reducida para el almuerzo */
+    height: 50px;
+    /* 🚩 Altura reducida para el almuerzo */
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -1279,6 +1316,111 @@ const borrarEvento = async (id) => {
     }
 }
 
+/* === ESTILOS MENÚ FLOTANTE MÓVIL === */
+.contenedor-menu-flotante {
+    display: none; /* Oculto en PC */
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 2000;
+}
+
+.btn-fab {
+    background: #2c3e50;
+    color: white;
+    border: none;
+    padding: 15px 25px;
+    border-radius: 30px; /* Forma de píldora */
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    z-index: 2002;
+}
+
+.btn-fab:active {
+    transform: scale(0.95);
+}
+
+.overlay-menu-movil {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    z-index: 2000;
+    animation: fadeIn 0.3s ease;
+}
+
+.opciones-flotantes {
+    position: absolute;
+    bottom: 70px; /* Sube justo encima del botón */
+    right: 0;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    width: 200px;
+    overflow: hidden;
+    z-index: 2001;
+    
+    /* Animación de entrada: Escondido abajo por defecto */
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.opciones-flotantes.abierto {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.opciones-flotantes ul {
+    list-style: none;
+    padding: 10px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.opciones-flotantes li {
+    padding: 15px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: bold;
+    color: #34495e;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.opciones-flotantes li.activo {
+    background: #e3f2fd;
+    color: #3498db;
+}
+
+.opciones-flotantes li.inactivo {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 🚩 ENCENDEMOS EL BOTÓN EN MÓVILES */
+@media (max-width: 900px) {
+    .contenedor-menu-flotante {
+        display: block;
+    }
+    
+    /* (Recuerda mantener el display:none de sidebar-left aquí) */
+}
+
 /* MAGIA RESPONSIVE PARA CELULARES */
 @media (max-width: 900px) {
     .muro-layout {
@@ -1288,10 +1430,15 @@ const borrarEvento = async (id) => {
     .sidebar-left,
     .sidebar-right {
         display: none;
+        /* Oculta las barras laterales en celular */
+    }
+
+    .menu-movil {
+        display: block;
+        /* 🚩 MUESTRA LAS PESTAÑAS HORIZONTALES */
     }
 
     .horario-falsa-tabla {
-        /* En móviles: 1 sola columna. Los días se apilan uno abajo del otro */
         grid-template-columns: 1fr;
         border: none;
         box-shadow: none;
