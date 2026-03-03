@@ -65,60 +65,105 @@ class Alumno(models.Model):
 
 
 # ==============================================================================
-# 3. TESORERÍA Y FINANZAS
+# 3. TESORERÍA Y FINANZAS (Modelo Billetera y Fondo Mutuo)
 # ==============================================================================
 
+class CuentaAlumno(models.Model):
+    """
+    La Billetera y Cartola Individual del alumno. 
+    Se crea automáticamente o a mano para cada estudiante.
+    """
+    alumno = models.OneToOneField(Alumno, on_delete=models.CASCADE, related_name='cuenta')
+    
+    # 1. El depósito a plazo (Años anteriores)
+    ahorro_historico = models.IntegerField(default=0) 
+    
+    # 2. El pozo de este año (Lo que ha pagado en cuotas/bingos este año)
+    fondo_viaje_actual = models.IntegerField(default=0)
+    
+    # 3. La Billetera (Abonos brutos que aún no se usan para pagar cobros)
+    saldo_disponible = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"Cuenta de {self.alumno.nombre_completo}"
+
+    @property
+    def total_ahorrado_viaje(self):
+        """Calcula el total real que el alumno tiene para el viaje"""
+        return self.ahorro_historico + self.fondo_viaje_actual
+
+
 class ConceptoCobro(models.Model):
-    """ Define los tipos de cobros generales (Mensualidad de Marzo, Rifa, etc.) """
-    TIPO_CHOICES = [
-        ('MENSUALIDAD', 'Mensualidad (Cuota)'),
-        ('EXTRA', 'Extra (Paseos, Rifas, etc.)')
+    """ Define POR QUÉ se está cobrando dinero y HACIA DÓNDE va. """
+    TIPO_DESTINO = [
+        ('VIAJE', 'Fondo Gira de Estudio (Ahorro)'),
+        ('EXTERNO', 'Recaudación Externa (Centro Padres, Alianza, etc.)')
     ]
 
     nombre = models.CharField(max_length=100)
     monto_estandar = models.IntegerField()
     fecha_vencimiento = models.DateField()
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default='MENSUALIDAD')
+    destino = models.CharField(max_length=20, choices=TIPO_DESTINO, default='VIAJE')
 
     def __str__(self):
-        return f"{self.nombre} (${self.monto_estandar})"
+        return f"{self.nombre} (${self.monto_estandar}) - Va a: {self.destino}"
+
 
 class Cargo(models.Model):
-    """ Representa una DEUDA específica que un alumno debe pagar """
+    """ Representa una DEUDA específica que el alumno DEBE pagar """
     ESTADOS = [
         ('PENDIENTE', 'Pendiente'),
-        ('PARCIAL', 'Pago Parcial'),
         ('PAGADO', 'Pagado completamente'),
     ]
     alumno = models.ForeignKey(Alumno, related_name='cargos', on_delete=models.CASCADE)
     concepto = models.ForeignKey(ConceptoCobro, on_delete=models.PROTECT)
     monto_total = models.IntegerField()
-    monto_pagado = models.IntegerField(default=0)
     estado = models.CharField(max_length=10, choices=ESTADOS, default='PENDIENTE')
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['estado', '-fecha_creacion']
 
     def __str__(self):
-        return f"{self.concepto.nombre} - {self.alumno.nombre_completo} ({self.estado})"
+        return f"[{self.estado}] {self.concepto.nombre} - {self.alumno.nombre_completo}"
+
 
 class Abono(models.Model):
-    """ Representa el DINERO real que ingresó a la cuenta por transferencia """
+    """ Representa el DINERO BRUTO (Transferencia) que ingresa a la 'Billetera' del alumno """
+    ESTADOS = [
+        ('REVISION', 'En Revisión'),
+        ('APROBADO', 'Aprobado (Saldo Disponible)'),
+        ('RECHAZADO', 'Rechazado')
+    ]
     alumno = models.ForeignKey(Alumno, related_name='abonos', on_delete=models.CASCADE)
-    monto_recibido = models.IntegerField()
-    saldo_disponible = models.IntegerField()
-    fecha_pago = models.DateField()
-    comprobante = models.CharField(max_length=100, blank=True)
+    monto = models.IntegerField()
+    fecha_transferencia = models.DateField()
+    # Cambiamos a CharField  
+    comprobante = models.CharField(max_length=100, blank=True, null=True) 
+    estado = models.CharField(max_length=15, choices=ESTADOS, default='REVISION')
+    fecha_registro = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Pago de {self.alumno.nombre_completo} - ${self.monto_recibido}"
+        return f"Abono ${self.monto} - {self.alumno.nombre_completo} ({self.estado})"
 
-class AsignacionPago(models.Model):
-    """ La 'Goma' que pega un Abono con un Cargo específico para justificar el pago """
-    abono = models.ForeignKey(Abono, on_delete=models.CASCADE, related_name='asignaciones')
-    cargo = models.ForeignKey(Cargo, on_delete=models.CASCADE, related_name='asignaciones')
-    monto_asignado = models.IntegerField()
-    fecha_asignacion = models.DateTimeField(auto_now_add=True)
+
+class MovimientoCuenta(models.Model):
+    """ La Cartola Histórica: Registra cada movimiento matemático para no perder el rastro """
+    TIPOS = [
+        ('INGRESO', 'Ingreso de Dinero (+)'),
+        ('EGRESO', 'Pago de Deuda o Retiro (-)')
+    ]
+    cuenta = models.ForeignKey(CuentaAlumno, related_name='movimientos', on_delete=models.CASCADE)
+    tipo = models.CharField(max_length=10, choices=TIPOS)
+    monto = models.IntegerField()
+    descripcion = models.CharField(max_length=200) # Ej: "Aprobación transferencia", "Pago Cuota Marzo"
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha']
 
     def __str__(self):
-        return f"${self.monto_asignado} de {self.abono.id} a {self.cargo.concepto.nombre}"
+        return f"{self.tipo} ${self.monto} - {self.cuenta.alumno.nombre_completo}"
 
 
 # ==============================================================================

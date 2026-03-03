@@ -1,101 +1,130 @@
 <script setup>
-import { ref, onMounted } from 'vue'
-import api from '../axios' // Usamos tu configuración con Token
+import { ref, onMounted, computed, watch } from 'vue'
+import api from '../axios'
 
-// === ESTADO ===
+// === ESTADO GLOBAL ===
 const alumnos = ref([])
 const alumnoSeleccionado = ref(null)
-
-// Selección Manual (Mesa de trabajo)
-const abonoSeleccionado = ref(null)
 const cargoSeleccionado = ref(null)
-const montoAImputar = ref(0)
 
-// Generador Masivo
+// Cartola de Auditoría (Historial de Transacciones)
+const historialTransacciones = ref([])
+
+// === 1. GESTIÓN DE COBROS ===
 const conceptos = ref([])
 const conceptoSeleccionado = ref(null)
-const cursoObjetivo = ref('')
 const procesandoMasivo = ref(false)
 
-// === NUEVO: INGRESO RÁPIDO DE ABONOS ===
+const mostrandoFormCobro = ref(false)
+const nuevoConcepto = ref({
+    nombre: '',
+    monto_estandar: '',
+    fecha_vencimiento: new Date().toISOString().split('T')[0],
+    destino: 'VIAJE'
+})
+
+const alumnosSeleccionados = ref([])
+const mostrandoListaAlumnos = ref(false)
+
+const seleccionarTodos = computed({
+    get() { return alumnos.value.length > 0 && alumnosSeleccionados.value.length === alumnos.value.length; },
+    set(valor) { alumnosSeleccionados.value = valor ? alumnos.value.map(a => a.id) : []; }
+})
+
+// === 2. INGRESO RÁPIDO DE ABONOS ===
 const mostrandoFormularioAbono = ref(false)
 const nuevoAbono = ref({
     monto: '',
-    fecha: new Date().toISOString().split('T')[0], // Hoy
+    fecha_transferencia: new Date().toISOString().split('T')[0],
     comprobante: ''
 })
-
-// === LISTA DE CURSOS ===
-const listaCursos = [
-    { cod: '8B', nombre: '8° Básico' },
-    { cod: '1M', nombre: '1° Medio' },
-    { cod: '2M', nombre: '2° Medio' },
-    { cod: '3M', nombre: '3° Medio' },
-    { cod: '4M', nombre: '4° Medio' },
-]
 
 // === CARGA INICIAL ===
 const cargarDatosGlobales = async () => {
     try {
         const resAlumnos = await api.get('mis-alumnos/')
         alumnos.value = resAlumnos.data
+        alumnosSeleccionados.value = alumnos.value.map(a => a.id)
+
         const resConceptos = await api.get('conceptos/')
         conceptos.value = resConceptos.data
-    } catch (error) {
-        console.error("Error cargando datos:", error)
-    }
+    } catch (error) { console.error("Error cargando datos:", error) }
 }
 
-onMounted(() => {
-    cargarDatosGlobales()
-})
+onMounted(() => { cargarDatosGlobales() })
 
-// === UTILIDAD: RECARGAR SOLO AL ALUMNO ACTUAL ===
-// Esto evita tener que recargar toda la página (F5) cada vez que hacemos algo
+const formatearDinero = (valor) => {
+    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(valor || 0)
+}
+
 const recargarAlumnoActual = async () => {
     if (!alumnoSeleccionado.value) return
     try {
-        // Volvemos a pedir la lista (lo ideal sería pedir solo 1 alumno, pero esto funciona rápido)
         const res = await api.get('mis-alumnos/')
         alumnos.value = res.data
-
-        // Buscamos al alumno que teníamos seleccionado para actualizar sus datos
         const actualizado = alumnos.value.find(a => a.id === alumnoSeleccionado.value.id)
         alumnoSeleccionado.value = actualizado
-
-        // Limpiamos selecciones para evitar errores
-        abonoSeleccionado.value = null
         cargoSeleccionado.value = null
-        montoAImputar.value = 0
-    } catch (e) {
-        console.error(e)
-    }
+
+        // Recargar la cartola también
+        cargarHistorial()
+    } catch (e) { console.error(e) }
 }
 
-// === 1. FUNCIÓN: GENERAR COBRO MASIVO ===
-const ejecutarCobroMasivo = async () => {
-    if (!conceptoSeleccionado.value || !cursoObjetivo.value) {
-        return alert("Por favor selecciona un Concepto y un Curso.")
+// Observar cuando se selecciona un alumno para cargar su historial
+watch(alumnoSeleccionado, (nuevoAlumno) => {
+    if (nuevoAlumno) {
+        cargarHistorial()
+    } else {
+        historialTransacciones.value = []
     }
-    if (!confirm(`¿Generar deuda a TODO el curso ${cursoObjetivo.value}?`)) return
+})
+
+// === FUNCIONES DE AUDITORÍA (NUEVO) ===
+const cargarHistorial = async () => {
+    try {
+        const res = await api.get('movimientos/')
+        historialTransacciones.value = res.data.filter(
+            mov => mov.cuenta === alumnoSeleccionado.value.cuenta.id
+        ).reverse()
+    } catch (e) { console.error("Error cargando historial", e) }
+}
+
+// === FUNCIONES DE COBROS MASIVOS ===
+const crearConceptoCobro = async () => {
+    if (!nuevoConcepto.value.nombre || !nuevoConcepto.value.monto_estandar) return alert("Faltan datos.")
+    try {
+        const res = await api.post('conceptos/', nuevoConcepto.value)
+        conceptos.value.push(res.data)
+        conceptoSeleccionado.value = res.data.id
+        alert("¡Cobro creado exitosamente en la base de datos! ✅")
+        nuevoConcepto.value = { nombre: '', monto_estandar: '', fecha_vencimiento: new Date().toISOString().split('T')[0], destino: 'VIAJE' }
+        mostrandoFormCobro.value = false
+    } catch (error) { alert("Error al crear el cobro.") }
+}
+
+const ejecutarCobroMasivo = async () => {
+    if (!conceptoSeleccionado.value || alumnosSeleccionados.value.length === 0) return alert("Faltan datos o alumnos.")
+    if (!confirm(`¿Generar deuda a ${alumnosSeleccionados.value.length} alumno(s)?`)) return
 
     procesandoMasivo.value = true
     try {
-        const url = `conceptos/${conceptoSeleccionado.value}/generar_masivo/`
-        const respuesta = await api.post(url, { curso: cursoObjetivo.value })
+        const idsExcluidos = alumnos.value.filter(a => !alumnosSeleccionados.value.includes(a.id)).map(a => a.id)
+        const cursoObj = alumnos.value[0]?.curso || '8B'
 
-        alert(`Reporte:\n✅ Creados: ${respuesta.data.cargos_creados}\n⏭️ Omitidos: ${respuesta.data.cargos_ya_existian}`)
-        cargarDatosGlobales() // Recargar todo
+        const respuesta = await api.post(`conceptos/${conceptoSeleccionado.value}/generar_masivo/`, {
+            curso: cursoObj, excluidos: idsExcluidos
+        })
+        alert(`Cobros Generados:\n✅ Creados: ${respuesta.data.cargos_creados}\n⏭️ Ya existían: ${respuesta.data.cargos_ya_existian}`)
 
-    } catch (error) {
-        console.error(error)
-        alert("Error al generar los cobros.")
-    } finally {
-        procesandoMasivo.value = false
-    }
+        cargarDatosGlobales()
+        recargarAlumnoActual()
+        mostrandoListaAlumnos.value = false
+    } catch (error) { alert("Error al generar las deudas.") }
+    finally { procesandoMasivo.value = false }
 }
 
-// === 2. FUNCIÓN: NUEVO ABONO (INGRESO DE PLATA) ===
+// === FUNCIONES DE LA BILLETERA ===
 const guardarAbono = async () => {
     if (!alumnoSeleccionado.value) return alert("Selecciona un alumno")
     if (!nuevoAbono.value.monto || nuevoAbono.value.monto <= 0) return alert("Monto inválido")
@@ -103,200 +132,304 @@ const guardarAbono = async () => {
     try {
         await api.post('pagos/', {
             alumno: alumnoSeleccionado.value.id,
-            monto_recibido: nuevoAbono.value.monto,
-            saldo_disponible: nuevoAbono.value.monto,
-            fecha_pago: nuevoAbono.value.fecha,
-            comprobante: nuevoAbono.value.comprobante
+            monto: nuevoAbono.value.monto,
+            fecha_transferencia: nuevoAbono.value.fecha_transferencia,
+            comprobante: nuevoAbono.value.comprobante || 'Ingreso Manual',
+            estado: 'APROBADO'
         })
 
-        alert("¡Dinero ingresado! 💰")
-
-        // Limpiar y recargar
-        nuevoAbono.value = { monto: '', fecha: new Date().toISOString().split('T')[0], comprobante: '' }
+        alert("¡Dinero ingresado a la billetera! 💰")
+        nuevoAbono.value = { monto: '', fecha_transferencia: new Date().toISOString().split('T')[0], comprobante: '' }
         mostrandoFormularioAbono.value = false
         await recargarAlumnoActual()
-
     } catch (error) {
-        console.error(error)
-        alert("Error al guardar abono")
+        console.error("Error del backend:", error.response?.data)
+        alert("Error al guardar abono.")
     }
 }
 
-// === 3. FUNCIÓN: ELIMINAR CARGO (BORRAR DEUDA) ===
+const eliminarAbono = async (abonoId) => {
+    if (!confirm("¿Estás seguro de eliminar este ingreso? Se descontará la plata de la billetera del alumno.")) return
+    try {
+        await api.delete(`pagos/${abonoId}/`)
+        alert("Ingreso eliminado y plata descontada. 🗑️")
+        await recargarAlumnoActual()
+    } catch (error) { alert("No se pudo eliminar el ingreso.") }
+}
+
+const reversarPago = async (cargoId) => {
+    if (!confirm("¿Anular este pago? La deuda volverá a PENDIENTE y la plata volverá a la billetera del alumno.")) return
+    try {
+        await api.post(`cargos/${cargoId}/reversar_pago/`)
+        alert("¡Pago reversado! El dinero volvió a la billetera. ⏪")
+        await recargarAlumnoActual()
+    } catch (error) { alert("Error al reversar el pago.") }
+}
+
 const eliminarCargo = async (cargoId) => {
     if (!confirm("¿Borrar esta deuda? No se puede deshacer.")) return
-
     try {
-        await api.delete(`cargos/${cargoId}/`) // Usamos la nueva vista CargoViewSet
+        await api.delete(`cargos/${cargoId}/`)
         alert("Deuda eliminada 🗑️")
         await recargarAlumnoActual()
-    } catch (error) {
-        console.error(error)
-        alert("No se puede borrar. Probablemente ya tiene pagos asociados.")
-    }
+    } catch (error) { alert("No se puede borrar. Revisa si está pagada.") }
 }
 
-// === 4. FUNCIÓN: IMPUTAR PAGO (ASIGNAR) ===
-const calcularMaximoPosible = () => {
-    if (abonoSeleccionado.value && cargoSeleccionado.value) {
-        const saldoAbono = abonoSeleccionado.value.saldo_disponible
-        const faltaDeuda = cargoSeleccionado.value.monto_total - cargoSeleccionado.value.monto_pagado
-        montoAImputar.value = Math.min(saldoAbono, faltaDeuda)
-    }
-}
-
-const procesarAsignacion = async () => {
-    if (montoAImputar.value <= 0) return alert("El monto debe ser mayor a 0")
+const procesarPagoConBilletera = async () => {
+    if (alumnoSeleccionado.value.cuenta.saldo_disponible < cargoSeleccionado.value.monto_total) return alert("Saldo insuficiente.")
     try {
-        await api.post('asignaciones/', {
-            abono: abonoSeleccionado.value.id,
-            cargo: cargoSeleccionado.value.id,
-            monto_asignado: montoAImputar.value
-        })
-        alert("¡Asignación Exitosa! ✅")
+        await api.post(`cargos/${cargoSeleccionado.value.id}/pagar_con_billetera/`)
+        alert("¡Cuota Pagada Exitosamente! ✅")
         await recargarAlumnoActual()
-    } catch (error) {
-        console.error(error)
-        alert("Error al asignar")
-    }
+    } catch (error) { alert(error.response?.data?.error || "Error al procesar el pago") }
 }
 </script>
 
 <template>
     <div class="panel-tesorero">
-        <h1>🛡️ Panel de Tesorería</h1>
+        <h1>🛡️ Centro de Mando: Tesorería</h1>
 
         <div class="panel-masivo">
-            <h3>⚡ Generar Cobros Masivos</h3>
-            <div class="controles-masivos">
-                <div class="campo">
-                    <label>¿Qué cobrar?</label>
-                    <select v-model="conceptoSeleccionado">
-                        <option :value="null">-- Seleccionar Concepto --</option>
-                        <option v-for="c in conceptos" :key="c.id" :value="c.id">
-                            {{ c.nombre }} (${{ c.monto_estandar }})
-                        </option>
-                    </select>
-                </div>
-
-                <div class="campo">
-                    <label>¿A quiénes?</label>
-                    <select v-model="cursoObjetivo">
-                        <option value="">-- Seleccionar Curso --</option>
-                        <option v-for="curso in listaCursos" :key="curso.cod" :value="curso.cod">
-                            {{ curso.nombre }}
-                        </option>
-                    </select>
-                </div>
-
-                <button @click="ejecutarCobroMasivo" class="btn-masivo" :disabled="procesandoMasivo">
-                    {{ procesandoMasivo ? 'Procesando...' : '🚀 Generar Deuda' }}
+            <div class="header-masivo">
+                <h3>⚡ Generar Cobros</h3>
+                <button @click="mostrandoFormCobro = !mostrandoFormCobro" class="btn-toggle-cobro">
+                    {{ mostrandoFormCobro ? '❌ Cerrar Nuevo Cobro' : '➕ Crear Nuevo Cobro' }}
                 </button>
+            </div>
+
+            <div v-if="mostrandoFormCobro" class="form-crear-cobro">
+                <div class="grupo-inputs-cobro">
+                    <div class="campo">
+                        <label>Nombre del Cobro:</label>
+                        <input type="text" v-model="nuevoConcepto.nombre" placeholder="Ej: Cuota Abril" />
+                    </div>
+                    <div class="campo">
+                        <label>Monto ($):</label>
+                        <input type="number" v-model="nuevoConcepto.monto_estandar" placeholder="Ej: 5000" />
+                    </div>
+                    <div class="campo">
+                        <label>Vencimiento:</label>
+                        <input type="date" v-model="nuevoConcepto.fecha_vencimiento" />
+                    </div>
+                    <div class="campo">
+                        <label>Destino de la plata:</label>
+                        <select v-model="nuevoConcepto.destino">
+                            <option value="VIAJE">Ahorro Fondo de Viaje</option>
+                            <option value="EXTERNO">Pago a Terceros (Rifa, Alianza)</option>
+                        </select>
+                    </div>
+                </div>
+                <button @click="crearConceptoCobro" class="btn-guardar-cobro">Guardar Cobro en Sistema</button>
+            </div>
+
+            <hr class="divisor-masivo" v-if="mostrandoFormCobro" />
+
+            <div class="controles-masivos">
+                <div class="seccion-cobro-seleccion">
+                    <div class="campo" style="width: 100%;">
+                        <label>¿Qué cobrar?</label>
+                        <select v-model="conceptoSeleccionado" class="select-grande">
+                            <option :value="null">-- Selecciona un cobro guardado --</option>
+                            <option v-for="c in conceptos" :key="c.id" :value="c.id">
+                                {{ c.nombre }} ({{ formatearDinero(c.monto_estandar) }}) - {{ c.destino }}
+                            </option>
+                        </select>
+                    </div>
+                    <button @click="ejecutarCobroMasivo" class="btn-masivo"
+                        :disabled="procesandoMasivo || alumnosSeleccionados.length === 0">
+                        {{ procesandoMasivo ? 'Procesando...' : '🚀 Generar Deuda' }}
+                    </button>
+                </div>
+
+                <div class="seccion-cobro-alumnos">
+                    <label>¿A quiénes cobrar?</label>
+                    <div class="caja-checkboxes">
+                        <div class="checkbox-item todos">
+                            <input type="checkbox" id="chkTodos" v-model="seleccionarTodos">
+                            <label for="chkTodos"><strong>SELECCIONAR TODO EL CURSO</strong></label>
+                        </div>
+                        <div class="toggle-lista" @click="mostrandoListaAlumnos = !mostrandoListaAlumnos">
+                            <span>{{ mostrandoListaAlumnos ? '🔽 Ocultar lista individual' : '▶️ Ver/Editar lista individual' }}</span>
+                            <small>({{ alumnosSeleccionados.length }} de {{ alumnos.length }} alumnos
+                                seleccionados)</small>
+                        </div>
+                        <div v-show="mostrandoListaAlumnos" class="lista-alumnos-check">
+                            <div v-for="al in alumnos" :key="al.id" class="checkbox-item individual">
+                                <input type="checkbox" :id="'chk' + al.id" :value="al.id"
+                                    v-model="alumnosSeleccionados">
+                                <label :for="'chk' + al.id">{{ al.nombre_completo }}</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="selector">
             <label>Seleccionar Alumno para trabajar:</label>
-            <select v-model="alumnoSeleccionado">
+            <select v-model="alumnoSeleccionado" @change="cargoSeleccionado = null">
                 <option :value="null">-- Elegir Alumno --</option>
                 <option v-for="al in alumnos" :key="al.id" :value="al">
-                    {{ al.nombre_completo }} (Saldo a favor: ${{ al.saldo_a_favor }})
+                    {{ al.nombre_completo }} (Billetera: {{ formatearDinero(al.cuenta?.saldo_disponible) }})
                 </option>
             </select>
         </div>
 
-        <div v-if="alumnoSeleccionado" class="mesa-trabajo">
-
-            <div class="columna fondos">
-                <div class="titulo-con-accion">
-                    <h3>💰 Fondos</h3>
-                    <button @click="mostrandoFormularioAbono = !mostrandoFormularioAbono" class="btn-mini">
-                        {{ mostrandoFormularioAbono ? '❌' : '➕ Ingreso' }}
-                    </button>
-                </div>
-
-                <div v-if="mostrandoFormularioAbono" class="form-rapido">
-                    <input type="number" v-model="nuevoAbono.monto" placeholder="Monto $" />
-                    <input type="text" v-model="nuevoAbono.comprobante" placeholder="N° Comprobante" />
-                    <input type="date" v-model="nuevoAbono.fecha" />
-                    <button @click="guardarAbono" class="btn-guardar-mini">Guardar Ingreso</button>
-                </div>
-
-                <p class="hint" v-if="!mostrandoFormularioAbono">Selecciona billete disponible:</p>
-
-                <div v-for="abono in alumnoSeleccionado.abonos" :key="abono.id" class="item-lista"
-                    :class="{ 'activo': abonoSeleccionado === abono, 'disabled': abono.saldo_disponible === 0 }"
-                    @click="abono.saldo_disponible > 0 ? (abonoSeleccionado = abono, calcularMaximoPosible()) : null">
-                    <div class="flex-row">
-                        <span>📅 {{ abono.fecha_pago }}</span>
-                        <strong style="color: green">${{ abono.saldo_disponible }}</strong>
+        <div v-if="alumnoSeleccionado" class="mesa-trabajo-contenedor">
+            <div class="mesa-trabajo">
+                <div class="columna fondos">
+                    <div class="titulo-con-accion">
+                        <h3>👛 Su Billetera</h3>
+                        <button @click="mostrandoFormularioAbono = !mostrandoFormularioAbono" class="btn-mini">
+                            {{ mostrandoFormularioAbono ? '❌' : '➕ Ingreso' }}
+                        </button>
                     </div>
-                    <small>Original: ${{ abono.monto_recibido }} | {{ abono.comprobante }}</small>
+
+                    <div class="tarjeta-billetera">
+                        <small>Saldo Disponible</small>
+                        <h2>{{ formatearDinero(alumnoSeleccionado.cuenta?.saldo_disponible) }}</h2>
+                    </div>
+
+                    <div class="info-apoderado">
+                        <small>👨‍👩‍👧 <strong>Apoderado a cargo:</strong></small><br>
+                        <span>{{ alumnoSeleccionado.apoderado_nombre }}</span>
+                    </div>
+
+                    <div v-if="mostrandoFormularioAbono" class="form-rapido">
+                        <input type="number" v-model="nuevoAbono.monto" placeholder="Monto $" />
+                        <input type="text" v-model="nuevoAbono.comprobante" placeholder="N° Comprobante / Detalle" />
+                        <input type="date" v-model="nuevoAbono.fecha_transferencia" />
+                        <button @click="guardarAbono" class="btn-guardar-mini">Cargar a la Billetera</button>
+                    </div>
+
+                    <h4 style="margin-top: 20px; color:#7f8c8d; font-size: 0.9em;">Historial de Ingresos:</h4>
+                    <div v-if="alumnoSeleccionado.abonos.length === 0" class="hint">Sin ingresos previos.</div>
+
+                    <div v-for="abono in alumnoSeleccionado.abonos" :key="abono.id" class="item-lista">
+                        <div class="flex-row">
+                            <span>📅 {{ abono.fecha_transferencia }}</span>
+                            <strong style="color: #27ae60;">+{{ formatearDinero(abono.monto) }}</strong>
+                        </div>
+                        <div class="flex-row align-center" style="margin-top: 5px;">
+                            <small>Ref: {{ abono.comprobante || '---' }} <br> Estado: <span :class="abono.estado">{{
+                                    abono.estado }}</span></small>
+                            <button @click.stop="eliminarAbono(abono.id)" class="btn-eliminar-abono"
+                                title="Borrar Ingreso">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="columna accion">
+                    <div v-if="cargoSeleccionado" class="caja-imputar">
+                        <h4>🔗 Pagar Cuota</h4>
+
+                        <div class="resumen-pago">
+                            <p><strong>Deuda:</strong> {{ cargoSeleccionado.concepto_nombre }}</p>
+                            <p><strong>Costo:</strong> <span class="texto-rojo">{{
+                                formatearDinero(cargoSeleccionado.monto_total) }}</span></p>
+                        </div>
+
+                        <div class="resumen-pago mt-2">
+                            <p><strong>En Billetera:</strong> <span class="texto-verde">{{
+                                formatearDinero(alumnoSeleccionado.cuenta?.saldo_disponible) }}</span></p>
+                        </div>
+
+                        <button @click="procesarPagoConBilletera" class="btn-guardar"
+                            :disabled="alumnoSeleccionado.cuenta?.saldo_disponible < cargoSeleccionado.monto_total"
+                            :class="{ 'disabled-btn': alumnoSeleccionado.cuenta?.saldo_disponible < cargoSeleccionado.monto_total }">
+                            PAGAR AHORA
+                        </button>
+
+                        <p v-if="alumnoSeleccionado.cuenta?.saldo_disponible < cargoSeleccionado.monto_total"
+                            style="color:#ffcdd2; font-size:0.8em; margin-top:10px;">
+                            ⚠️ Saldo insuficiente en billetera.
+                        </p>
+                    </div>
+
+                    <div v-else class="esperando">
+                        <p>👈 La Billetera tiene fondos.</p>
+                        <p>👉 Haz clic en una Deuda "Pendiente" para pagarla.</p>
+                    </div>
+                </div>
+
+                <div class="columna deudas">
+                    <h3>📋 Deudas del Alumno</h3>
+
+                    <div v-if="alumnoSeleccionado.cargos && alumnoSeleccionado.cargos.length > 0">
+                        <table class="tabla-deudas">
+                            <thead>
+                                <tr>
+                                    <th>Concepto</th>
+                                    <th>Monto & Estado</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="cargo in alumnoSeleccionado.cargos" :key="cargo.id"
+                                    :class="{ 'fila-activa': cargoSeleccionado === cargo }"
+                                    @click="cargo.estado === 'PENDIENTE' ? (cargoSeleccionado = cargo) : null"
+                                    style="cursor: pointer;">
+
+                                    <td>
+                                        <strong>{{ cargo.concepto_nombre }}</strong><br>
+                                        <small style="color: #777;">Destino: {{ cargo.concepto_destino }}</small>
+                                    </td>
+
+                                    <td :class="cargo.estado === 'PAGADO' ? 'texto-verde' : 'texto-rojo'">
+                                        {{ formatearDinero(cargo.monto_total) }}
+                                        <br>
+                                        <span class="badge-estado" :class="cargo.estado">{{ cargo.estado }}</span>
+                                        <div v-if="cargo.estado === 'PAGADO'" class="fecha-pago-text">
+                                            (Pagado: {{ cargo.fecha_pago || 'Recientemente' }})
+                                        </div>
+                                    </td>
+
+                                    <td style="text-align: center;">
+                                        <button v-if="cargo.estado === 'PENDIENTE'"
+                                            @click.stop="eliminarCargo(cargo.id)" class="btn-eliminar"
+                                            title="Borrar Deuda">🗑️</button>
+                                        <button v-if="cargo.estado === 'PAGADO'" @click.stop="reversarPago(cargo.id)"
+                                            class="btn-reversar" title="Anular Pago y devolver dinero">⏪
+                                            Reversar</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p v-else class="hint">No tiene deudas registradas.</p>
                 </div>
             </div>
 
-            <div class="columna accion">
-                <div v-if="abonoSeleccionado && cargoSeleccionado" class="caja-imputar">
-                    <h4>🔗 Asignar Pago</h4>
-                    <p style="font-size: 0.9em;">
-                        De: <strong>${{ abonoSeleccionado.saldo_disponible }}</strong> (Disponible)<br>
-                        A: <strong>{{ cargoSeleccionado.concepto_nombre }}</strong>
-                    </p>
+            <div class="auditoria-contenedor">
+                <h3>📖 Historial de Transacciones (Cartola)</h3>
+                <p class="hint">Registro inalterable de todos los movimientos de dinero de este alumno.</p>
 
-                    <label>Monto a usar:</label>
-                    <input type="number" v-model="montoAImputar">
-
-                    <button @click="procesarAsignacion" class="btn-guardar">CONFIRMAR</button>
-                </div>
-                <div v-else class="esperando">
-                    <p>👈 1. Selecciona un Abono</p>
-                    <p>👉 2. Selecciona una Deuda</p>
-                </div>
-            </div>
-
-            <div class="columna deudas">
-                <h3>📋 Deudas del Alumno</h3>
-
-                <div v-if="alumnoSeleccionado.cargos && alumnoSeleccionado.cargos.length > 0">
-                    <table class="tabla-deudas">
-                        <thead>
-                            <tr>
-                                <th>Concepto</th>
-                                <th>Monto</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="cargo in alumnoSeleccionado.cargos" :key="cargo.id"
-                                :class="{ 'fila-activa': cargoSeleccionado === cargo }"
-                                @click="cargo.estado !== 'PAGADO' ? (cargoSeleccionado = cargo, calcularMaximoPosible()) : null"
-                                style="cursor: pointer;">
-
-                                <td>
-                                    {{ cargo.concepto_nombre }}<br>
-                                    <small style="color: #777;">Vence: {{ cargo.fecha_vencimiento || '-' }}</small>
-                                </td>
-
-                                <td :class="cargo.estado === 'PAGADO' ? 'texto-verde' : 'texto-rojo'">
-                                    ${{ cargo.monto_total }}
-                                    <div v-if="cargo.monto_pagado > 0" style="font-size:0.8em; color:orange">
-                                        (Abo: ${{ cargo.monto_pagado }})
-                                    </div>
-                                    <span class="badge-estado" :class="cargo.estado">{{ cargo.estado }}</span>
-                                </td>
-
-                                <td style="text-align: center;">
-                                    <button v-if="cargo.estado !== 'PAGADO'" @click.stop="eliminarCargo(cargo.id)"
-                                        class="btn-eliminar" title="Borrar Deuda">
-                                        🗑️
-                                    </button>
-                                    <span v-else>✅</span>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <p v-else class="hint">No tiene deudas registradas.</p>
+                <table class="tabla-auditoria">
+                    <thead>
+                        <tr>
+                            <th>Fecha y Hora</th>
+                            <th>Tipo</th>
+                            <th>Descripción</th>
+                            <th style="text-align: right;">Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-if="historialTransacciones.length === 0">
+                            <td colspan="4" class="hint" style="text-align: center;">Sin transacciones registradas.</td>
+                        </tr>
+                        <tr v-for="mov in historialTransacciones" :key="mov.id">
+                            <td>{{ new Date(mov.fecha).toLocaleString('es-CL') }}</td>
+                            <td>
+                                <span class="badge-tipo" :class="mov.tipo">{{ mov.tipo }}</span>
+                            </td>
+                            <td>{{ mov.descripcion }}</td>
+                            <td style="text-align: right; font-weight: bold;"
+                                :class="mov.tipo === 'INGRESO' ? 'texto-verde' : 'texto-rojo'">
+                                {{ mov.tipo === 'INGRESO' ? '+' : '-' }}{{ formatearDinero(mov.monto) }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
         </div>
@@ -304,36 +437,214 @@ const procesarAsignacion = async () => {
 </template>
 
 <style scoped>
-/* ESTRUCTURA GENERAL */
 .panel-tesorero {
     padding: 20px;
     background-color: #fff;
     border-radius: 8px;
     color: #333;
-    max-width: 1200px;
+    max-width: 1300px;
     margin: 0 auto;
+    font-family: 'Segoe UI', sans-serif;
 }
 
-/* GENERADOR MASIVO */
 .panel-masivo {
     background-color: #fff8e1;
-    /* Amarillo muy suave */
     border: 1px solid #ffe082;
     padding: 20px;
-    border-radius: 8px;
+    border-radius: 12px;
     margin-bottom: 30px;
 }
 
-.panel-masivo h3 {
-    margin-top: 0;
+.header-masivo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.header-masivo h3 {
+    margin: 0;
     color: #f57c00;
+}
+
+.btn-toggle-cobro {
+    background: white;
+    border: 1px solid #f57c00;
+    color: #f57c00;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.85em;
+    transition: 0.2s;
+}
+
+.btn-toggle-cobro:hover {
+    background: #f57c00;
+    color: white;
+}
+
+.form-crear-cobro {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px dashed #f57c00;
+    margin-bottom: 15px;
+}
+
+.grupo-inputs-cobro {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.grupo-inputs-cobro input,
+.grupo-inputs-cobro select {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.btn-guardar-cobro {
+    background: #f57c00;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.divisor-masivo {
+    border: 0;
+    height: 1px;
+    background: #ffe082;
+    margin: 20px 0;
 }
 
 .controles-masivos {
     display: flex;
-    gap: 20px;
-    align-items: flex-end;
+    gap: 30px;
+    align-items: flex-start;
     flex-wrap: wrap;
+}
+
+.seccion-cobro-seleccion {
+    flex: 1;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.select-grande {
+    padding: 12px;
+    border: 2px solid #ffcc80;
+    border-radius: 6px;
+    font-size: 1.05em;
+    background: white;
+}
+
+.btn-masivo {
+    background-color: #e65100;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1.1em;
+    transition: 0.2s;
+    margin-top: 10px;
+}
+
+.btn-masivo:hover {
+    background-color: #d84315;
+    transform: translateY(-2px);
+}
+
+.btn-masivo:disabled {
+    background-color: #bdbdbd;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.seccion-cobro-alumnos {
+    flex: 1.5;
+    min-width: 300px;
+}
+
+.caja-checkboxes {
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-top: 5px;
+}
+
+.checkbox-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.checkbox-item.todos {
+    background: #f0f4f8;
+    border-bottom: none;
+}
+
+.checkbox-item.individual:hover {
+    background: #f9f9f9;
+}
+
+.checkbox-item input {
+    transform: scale(1.2);
+    cursor: pointer;
+}
+
+.checkbox-item label {
+    cursor: pointer;
+    flex-grow: 1;
+    user-select: none;
+}
+
+.lista-alumnos-check {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+.toggle-lista {
+    background: #f8fbff;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+    padding: 10px 15px;
+    text-align: center;
+    cursor: pointer;
+    color: #3498db;
+    display: flex;
+    flex-direction: column;
+    transition: background 0.2s;
+}
+
+.toggle-lista:hover {
+    background: #eef5fa;
+}
+
+.toggle-lista span {
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.toggle-lista small {
+    color: #7f8c8d;
+    font-size: 0.8em;
+    margin-top: 3px;
 }
 
 .campo {
@@ -345,44 +656,20 @@ const procesarAsignacion = async () => {
     font-weight: bold;
     margin-bottom: 5px;
     font-size: 0.9em;
+    color: #555;
 }
 
-.campo select {
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    min-width: 200px;
-}
-
-.btn-masivo {
-    background-color: #e65100;
-    color: white;
-    border: none;
-    padding: 0 20px;
-    height: 38px;
-    /* Altura fija para alinear con inputs */
-    border-radius: 4px;
-    font-weight: bold;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.btn-masivo:hover {
-    background-color: #ff6d00;
-}
-
-.btn-masivo:disabled {
-    background-color: #bdbdbd;
-    cursor: not-allowed;
-}
-
-
-/* SELECCIÓN DE ALUMNO */
 .selector {
     margin-bottom: 20px;
-    padding: 10px;
-    background: #f5f5f5;
+    padding: 15px;
+    background: #f0f4f8;
     border-radius: 8px;
+    border-left: 5px solid #3498db;
+}
+
+.selector label {
+    font-weight: bold;
+    margin-right: 15px;
 }
 
 .selector select {
@@ -390,18 +677,25 @@ const procesarAsignacion = async () => {
     width: 100%;
     max-width: 400px;
     font-size: 1em;
+    border-radius: 5px;
+    border: 1px solid #bdc3c7;
 }
 
+.mesa-trabajo-contenedor {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
 
-/* MESA DE TRABAJO (3 COLUMNAS) */
 .mesa-trabajo {
     display: flex;
     gap: 20px;
     flex-wrap: wrap;
+    align-items: flex-start;
 }
 
 .columna {
-    padding: 15px;
+    padding: 20px;
     border-radius: 8px;
     background: #f9f9f9;
     border: 1px solid #eee;
@@ -409,12 +703,12 @@ const procesarAsignacion = async () => {
 
 .columna.fondos {
     flex: 1;
-    min-width: 250px;
+    min-width: 280px;
 }
 
 .columna.accion {
-    flex: 0.5;
-    min-width: 200px;
+    flex: 1;
+    min-width: 250px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -423,153 +717,226 @@ const procesarAsignacion = async () => {
 }
 
 .columna.deudas {
-    flex: 1.2;
-    min-width: 300px;
+    flex: 1.5;
+    min-width: 360px;
 }
 
-/* Un poco más ancha para la tabla */
-
-
-/* COLUMNA IZQUIERDA (FONDOS) */
 .titulo-con-accion {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+.titulo-con-accion h3 {
+    margin: 0;
+}
+
+.tarjeta-billetera {
+    background: #34495e;
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.tarjeta-billetera small {
+    text-transform: uppercase;
+    font-size: 0.8em;
+    opacity: 0.8;
+}
+
+.tarjeta-billetera h2 {
+    margin: 5px 0 0 0;
+    font-size: 2.2em;
+    color: #2ecc71;
+}
+
+.info-apoderado {
+    background: #e8f4f8;
+    border-left: 4px solid #3498db;
+    padding: 10px 15px;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 20px;
+    color: #2c3e50;
+}
+
+.info-apoderado span {
+    font-size: 1.1em;
+    display: block;
+    margin-top: 3px;
 }
 
 .btn-mini {
     background: #3498db;
     color: white;
     border: none;
-    padding: 5px 10px;
+    padding: 6px 12px;
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.8em;
+    font-weight: bold;
 }
 
 .form-rapido {
     background: #e3f2fd;
-    padding: 10px;
-    border-radius: 4px;
+    padding: 15px;
+    border-radius: 8px;
     margin-bottom: 15px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     border: 1px solid #90caf9;
 }
 
 .form-rapido input {
-    padding: 6px;
+    padding: 8px;
     border: 1px solid #ccc;
-    border-radius: 3px;
+    border-radius: 4px;
 }
 
 .btn-guardar-mini {
     background: #27ae60;
     color: white;
     border: none;
-    padding: 8px;
-    border-radius: 3px;
+    padding: 10px;
+    border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
 }
 
 .item-lista {
     background: white;
-    padding: 10px;
+    padding: 12px;
     margin-bottom: 8px;
     border-radius: 6px;
-    cursor: pointer;
-    border: 2px solid transparent;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.item-lista:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.item-lista.activo {
-    border-color: #3498db;
-    background-color: #f0faff;
-}
-
-.item-lista.disabled {
-    opacity: 0.5;
-    cursor: default;
-    background: #eee;
+    border: 1px solid #e0e0e0;
 }
 
 .flex-row {
     display: flex;
     justify-content: space-between;
+    margin-bottom: 5px;
 }
 
+.align-center {
+    align-items: center;
+}
 
-/* COLUMNA CENTRAL (ACCIÓN) */
+.APROBADO {
+    color: #27ae60;
+    font-weight: bold;
+}
+
+.btn-eliminar-abono {
+    background: none;
+    border: none;
+    color: #e74c3c;
+    cursor: pointer;
+    font-size: 1.1em;
+    opacity: 0.7;
+    transition: 0.2s;
+}
+
+.btn-eliminar-abono:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
 .caja-imputar {
     background: #2c3e50;
     color: white;
-    padding: 20px;
-    border-radius: 8px;
+    padding: 25px;
+    border-radius: 12px;
     text-align: center;
     width: 100%;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
-.caja-imputar input {
+.caja-imputar h4 {
+    margin-top: 0;
+}
+
+.resumen-pago {
+    background: rgba(255, 255, 255, 0.1);
     padding: 10px;
-    width: 80%;
-    margin: 15px 0;
-    border: none;
-    border-radius: 4px;
-    font-size: 1.2em;
-    text-align: center;
-    font-weight: bold;
-    color: #333;
+    border-radius: 8px;
+    text-align: left;
+}
+
+.resumen-pago p {
+    margin: 5px 0;
+    display: flex;
+    justify-content: space-between;
+}
+
+.mt-2 {
+    margin-top: 10px;
 }
 
 .btn-guardar {
     background: #27ae60;
     color: white;
     border: none;
-    padding: 12px;
-    border-radius: 4px;
+    padding: 15px;
+    border-radius: 8px;
     font-weight: bold;
     cursor: pointer;
     width: 100%;
     font-size: 1.1em;
+    margin-top: 20px;
+    transition: 0.3s;
 }
 
 .btn-guardar:hover {
     background: #219150;
+    transform: scale(1.02);
+}
+
+.disabled-btn {
+    background: #95a5a6;
+    cursor: not-allowed;
+}
+
+.disabled-btn:hover {
+    background: #95a5a6;
+    transform: none;
 }
 
 .esperando {
     text-align: center;
-    color: #aaa;
+    color: #95a5a6;
     font-style: italic;
+    background: #f8f9fa;
+    padding: 30px;
+    border-radius: 12px;
+    border: 2px dashed #bdc3c7;
 }
 
+.columna.deudas h3 {
+    margin-top: 0;
+}
 
-/* COLUMNA DERECHA (TABLA DEUDAS) */
 .tabla-deudas {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9em;
     background: white;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 .tabla-deudas th {
-    background: #e0e0e0;
-    padding: 8px;
+    background: #34495e;
+    color: white;
+    padding: 12px;
     text-align: left;
-    color: #555;
 }
 
 .tabla-deudas td {
-    padding: 8px;
+    padding: 12px;
     border-bottom: 1px solid #eee;
     vertical-align: middle;
 }
@@ -584,34 +951,39 @@ const procesarAsignacion = async () => {
 }
 
 .texto-rojo {
-    color: #c0392b;
+    color: #e74c3c;
     font-weight: bold;
+    font-size: 1.1em;
 }
 
 .texto-verde {
     color: #27ae60;
     font-weight: bold;
+    font-size: 1.1em;
 }
 
 .badge-estado {
     display: inline-block;
-    padding: 2px 6px;
+    padding: 4px 8px;
     border-radius: 4px;
-    font-size: 0.7em;
-    margin-top: 2px;
+    font-size: 0.75em;
+    margin-top: 4px;
     color: white;
+    font-weight: bold;
 }
 
 .badge-estado.PENDIENTE {
     background: #e74c3c;
 }
 
-.badge-estado.PARCIAL {
-    background: #f39c12;
-}
-
 .badge-estado.PAGADO {
     background: #2ecc71;
+}
+
+.fecha-pago-text {
+    font-size: 0.8em;
+    color: #7f8c8d;
+    margin-top: 4px;
 }
 
 .btn-eliminar {
@@ -620,12 +992,90 @@ const procesarAsignacion = async () => {
     color: #c62828;
     border-radius: 4px;
     cursor: pointer;
-    padding: 4px 8px;
+    padding: 6px 10px;
     transition: 0.2s;
 }
 
 .btn-eliminar:hover {
     background: #d32f2f;
     color: white;
+}
+
+.btn-reversar {
+    background: #fff3e0;
+    border: 1px solid #ffb74d;
+    color: #e65100;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 6px 10px;
+    font-size: 0.85em;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.btn-reversar:hover {
+    background: #ffb74d;
+    color: white;
+}
+
+.hint {
+    color: #95a5a6;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+.auditoria-contenedor {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 25px;
+    margin-top: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+}
+
+.auditoria-contenedor h3 {
+    margin-top: 0;
+    color: #2c3e50;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+}
+
+.tabla-auditoria {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95em;
+    margin-top: 15px;
+}
+
+.tabla-auditoria th {
+    background: #f8f9fa;
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid #ddd;
+    color: #555;
+}
+
+.tabla-auditoria td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.badge-tipo {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+.badge-tipo.INGRESO {
+    background: #e8f5e9;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+
+.badge-tipo.EGRESO {
+    background: #ffebee;
+    color: #c62828;
+    border: 1px solid #ffcdd2;
 }
 </style>

@@ -3,10 +3,11 @@ from .models import (
     PerfilUsuario, 
     Apoderado, 
     Alumno, 
+    CuentaAlumno,      # NUEVO
     ConceptoCobro, 
     Cargo, 
     Abono, 
-    AsignacionPago, 
+    MovimientoCuenta,  # NUEVO
     Noticia, 
     Evento
 )
@@ -14,37 +15,54 @@ from .models import (
 # ==============================================================================
 # 1. SEGURIDAD Y PERFILES
 # ==============================================================================
-
-# Usamos un decorador (@) para darle "súperpoderes" a la vista en el panel
 @admin.register(PerfilUsuario)
 class PerfilUsuarioAdmin(admin.ModelAdmin):
-    # list_display: Muestra estas columnas como una tabla en el panel principal
     list_display = ('usuario', 'debe_cambiar_clave')
-    # list_filter: Agrega un menú a la derecha para filtrar a los que ya la cambiaron
     list_filter = ('debe_cambiar_clave',)
-
 
 # ==============================================================================
 # 2. ACTORES PRINCIPALES
 # ==============================================================================
-
 admin.site.register(Apoderado)
-admin.site.register(Alumno)
 
+@admin.register(Alumno)
+class AlumnoAdmin(admin.ModelAdmin):
+    list_display = ('nombre_completo', 'rut', 'curso', 'apoderado')
+    search_fields = ('nombre_completo', 'rut')
 
 # ==============================================================================
 # 3. TESORERÍA Y FINANZAS
 # ==============================================================================
+@admin.register(CuentaAlumno)
+class CuentaAlumnoAdmin(admin.ModelAdmin):
+    list_display = ('alumno', 'ahorro_historico', 'fondo_viaje_actual', 'saldo_disponible', 'total_ahorrado_viaje')
+    search_fields = ('alumno__nombre_completo',)
 
-admin.site.register(ConceptoCobro)
-admin.site.register(Cargo)
-admin.site.register(Abono)
-admin.site.register(AsignacionPago)
+@admin.register(ConceptoCobro)
+class ConceptoCobroAdmin(admin.ModelAdmin):
+    list_display = ('nombre', 'monto_estandar', 'destino', 'fecha_vencimiento')
+    list_filter = ('destino',)
 
+@admin.register(Cargo)
+class CargoAdmin(admin.ModelAdmin):
+    list_display = ('alumno', 'concepto', 'monto_total', 'estado', 'fecha_creacion')
+    list_filter = ('estado', 'concepto')
+    search_fields = ('alumno__nombre_completo',)
+
+@admin.register(Abono)
+class AbonoAdmin(admin.ModelAdmin):
+    list_display = ('alumno', 'monto', 'fecha_transferencia', 'estado')
+    list_filter = ('estado',)
+    search_fields = ('alumno__nombre_completo',)
+
+@admin.register(MovimientoCuenta)
+class MovimientoCuentaAdmin(admin.ModelAdmin):
+    list_display = ('cuenta', 'tipo', 'monto', 'descripcion', 'fecha')
+    list_filter = ('tipo',)
+    search_fields = ('cuenta__alumno__nombre_completo', 'descripcion')
 
 # ==============================================================================
 # 4. COMUNICACIÓN Y EVENTOS
 # ==============================================================================
-
 admin.site.register(Noticia)
 admin.site.register(Evento)

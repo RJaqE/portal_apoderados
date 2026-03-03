@@ -140,17 +140,27 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# 👇 NUEVA FORMA DE MANEJAR ARCHIVOS (Reemplaza a STATICFILES_STORAGE y DEFAULT_FILE_STORAGE)
-STORAGES = {
-    "default": {
-        # Las fotos de los usuarios van a Cloudinary
-        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
-    },
-    "staticfiles": {
-        # Los colores y CSS del panel de admin los maneja Whitenoise
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-}
+# 👇 LÓGICA INTELIGENTE PARA ARCHIVOS
+if os.environ.get('DATABASE_URL'):
+    # ESTAMOS EN RAILWAY 🚂 (Usa Cloudinary)
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+else:
+    # ESTAMOS EN TU PC LOCAL 💻 (Usa tu disco duro normal)
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
 
 # ==============================================================================
 # 7. SEGURIDAD EXTERNA (CORS Y CSRF)

@@ -5,13 +5,13 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AlumnoViewSet, 
     AbonoViewSet, 
-    AsignacionPagoViewSet, 
     ConceptoViewSet, 
     CargoViewSet,      # <--- OJO: Asegúrate de tener este si usas la gestión de cargos
     quien_soy,         # <--- NUEVO IMPORT
     NoticiaViewSet,    # <--- NUEVO IMPORT para noticias
     resumen_tesoreria, # <--- NUEVO IMPORT para resumen de tesorería
     EventoViewSet,     # <--- NUEVO IMPORT para eventos
+    MovimientoCuentaViewSet, # <--- NUEVO IMPORT para movimientos de cuenta
     
     # === NUEVAS VISTAS DE SEGURIDAD ===
     SolicitarEnlaceSeguridad,
@@ -22,7 +22,6 @@ from .views import (
 router = DefaultRouter()
 router.register(r'mis-alumnos', AlumnoViewSet, basename='alumno')
 router.register(r'pagos', AbonoViewSet)
-router.register(r'asignaciones', AsignacionPagoViewSet)
 router.register(r'conceptos', ConceptoViewSet)
 # Si tu panel de tesorero usa cargos, no olvides esta línea:
 router.register(r'cargos', CargoViewSet) 
@@ -30,6 +29,8 @@ router.register(r'cargos', CargoViewSet)
 router.register(r'noticias', NoticiaViewSet) 
 # === NUEVA RUTA DE EVENTOS ===
 router.register(r'eventos', EventoViewSet) 
+# === NUEVA RUTA DE MOVIMIENTOS DE CUENTA (Cartola Histórica) ===
+router.register(r'movimientos', MovimientoCuentaViewSet, basename='movimiento') 
 
 urlpatterns = [
     # Rutas automáticas del router (ViewSets)
