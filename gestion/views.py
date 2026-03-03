@@ -136,7 +136,18 @@ class AbonoViewSet(viewsets.ModelViewSet):
         """ Cuando se CREA un ingreso, sumamos la plata y lo anotamos en la Cartola """
         abono = serializer.save()
         
-        cuenta = abono.alumno.cuenta
+        # 👇 TRAMPA INTELIGENTE PARA ALUMNOS ANTIGUOS SIN BILLETERA
+        from .models import CuentaAlumno
+        from django.core.exceptions import ObjectDoesNotExist
+        
+        try:
+            cuenta = abono.alumno.cuenta
+        except ObjectDoesNotExist:
+            # Si explota porque no tiene cuenta, ¡se la creamos en el acto!
+            cuenta = CuentaAlumno.objects.create(alumno=abono.alumno)
+            print(f"Cuenta creada automáticamente para {abono.alumno.nombre_completo}")
+
+        # Ahora sí, continuamos normalmente sumando la plata
         cuenta.saldo_disponible += abono.monto
         cuenta.save()
         
