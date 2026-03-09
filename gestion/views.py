@@ -14,7 +14,6 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework.views import APIView
 
-# === IMPORTACIONES ===
 from .models import (
     Alumno, CuentaAlumno, Abono, ConceptoCobro, Cargo, MovimientoCuenta, 
     Noticia, Evento, PerfilUsuario
@@ -25,7 +24,7 @@ from .serializers import (
 )
 
 # ==============================================================================
-# 1. SEGURIDAD: PRIMER INGRESO Y RECUPERACIÓN DE CLAVE (Sin cambios)
+# 1. SEGURIDAD: PRIMER INGRESO Y RECUPERACIÓN DE CLAVE
 # ==============================================================================
 def generar_correo_html(usuario, enlace):
     return f"""
@@ -125,33 +124,25 @@ class AlumnoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user 
         if user.is_staff:
-            return Alumno.objects.all()
-        return Alumno.objects.filter(apoderado__user=user)
+            return Alumno.objects.all().order_by('numero_lista')
+        return Alumno.objects.filter(apoderados__user=user).order_by('numero_lista')
 
 class AbonoViewSet(viewsets.ModelViewSet):
     queryset = Abono.objects.all().order_by('-fecha_transferencia')
     serializer_class = AbonoSerializer
 
     def perform_create(self, serializer):
-        """ Cuando se CREA un ingreso, sumamos la plata y lo anotamos en la Cartola """
         abono = serializer.save()
-        
-        # 👇 TRAMPA INTELIGENTE PARA ALUMNOS ANTIGUOS SIN BILLETERA
-        from .models import CuentaAlumno
         from django.core.exceptions import ObjectDoesNotExist
         
         try:
             cuenta = abono.alumno.cuenta
         except ObjectDoesNotExist:
-            # Si explota porque no tiene cuenta, ¡se la creamos en el acto!
             cuenta = CuentaAlumno.objects.create(alumno=abono.alumno)
-            print(f"Cuenta creada automáticamente para {abono.alumno.nombre_completo}")
-
-        # Ahora sí, continuamos normalmente sumando la plata
+        
         cuenta.saldo_disponible += abono.monto
         cuenta.save()
         
-        # Anotación en la Cartola de Auditoría
         MovimientoCuenta.objects.create(
             cuenta=cuenta,
             tipo='INGRESO',
@@ -160,22 +151,16 @@ class AbonoViewSet(viewsets.ModelViewSet):
         )
 
     def perform_destroy(self, instance):
-        """ Cuando se ELIMINA un ingreso por error, restamos la plata y lo anotamos """
         cuenta = instance.alumno.cuenta
-        
-        # Descontamos la plata que se había sumado por error
         cuenta.saldo_disponible -= instance.monto
         cuenta.save()
         
-        # Dejamos el registro de la anulación en la Cartola
         MovimientoCuenta.objects.create(
             cuenta=cuenta,
             tipo='EGRESO',
             monto=instance.monto,
             descripcion=f"ANULACIÓN DE INGRESO: Eliminado por Tesorería (Ref: {instance.comprobante})"
         )
-        
-        # Borramos el registro del abono
         instance.delete()
 
 class ConceptoViewSet(viewsets.ModelViewSet):
@@ -184,19 +169,14 @@ class ConceptoViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def generar_masivo(self, request, pk=None):
-        """ 
-        Genera cargos automáticos. Permite excluir IDs específicos.
-        Body: { "curso": "8B", "excluidos": [3, 5, 12] }
-        """
         concepto = self.get_object() 
         curso_objetivo = request.data.get('curso')
-        excluidos_ids = request.data.get('excluidos', []) # Array de IDs de alumnos a omitir
+        excluidos_ids = request.data.get('excluidos', []) 
 
         if not curso_objetivo:
             return Response({"error": "Especifica el curso"}, status=status.HTTP_400_BAD_REQUEST)
 
         alumnos = Alumno.objects.filter(curso=curso_objetivo).exclude(id__in=excluidos_ids)
-        
         creados = 0
         omitidos = 0
 
@@ -217,7 +197,6 @@ class ConceptoViewSet(viewsets.ModelViewSet):
             "mensaje": "Cobro masivo generado",
             "cargos_creados": creados,
             "cargos_ya_existian": omitidos,
-            "alumnos_excluidos": len(excluidos_ids)
         })
 
 class CargoViewSet(viewsets.ModelViewSet):
@@ -227,7 +206,6 @@ class CargoViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def pagar_con_billetera(self, request, pk=None):
-        """ Saca plata de la billetera, paga la deuda y anota en la cartola """
         cargo = self.get_object()
         
         if cargo.estado == 'PAGADO':
@@ -238,15 +216,12 @@ class CargoViewSet(viewsets.ModelViewSet):
         if cuenta.saldo_disponible < cargo.monto_total:
             return Response({"error": "Saldo insuficiente en billetera."}, status=status.HTTP_400_BAD_REQUEST)
             
-        # 1. Descontar saldo
         cuenta.saldo_disponible -= cargo.monto_total
         cuenta.save()
         
-        # 2. Marcar como pagado
         cargo.estado = 'PAGADO'
         cargo.save()
 
-        # 3. Registrar en Cartola de Auditoría
         MovimientoCuenta.objects.create(
             cuenta=cuenta,
             tipo='EGRESO',
@@ -258,7 +233,6 @@ class CargoViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def reversar_pago(self, request, pk=None):
-        """ Devuelve la plata a la billetera, revive la deuda y anota en la cartola """
         cargo = self.get_object()
         
         if cargo.estado != 'PAGADO':
@@ -266,15 +240,12 @@ class CargoViewSet(viewsets.ModelViewSet):
             
         cuenta = cargo.alumno.cuenta
         
-        # 1. Devolver saldo a la billetera
         cuenta.saldo_disponible += cargo.monto_total
         cuenta.save()
         
-        # 2. Volver la deuda a PENDIENTE
         cargo.estado = 'PENDIENTE'
         cargo.save()
 
-        # 3. Registrar la devolución en Cartola de Auditoría
         MovimientoCuenta.objects.create(
             cuenta=cuenta,
             tipo='INGRESO',
@@ -297,7 +268,6 @@ class EventoViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
 
 class MovimientoCuentaViewSet(viewsets.ReadOnlyModelViewSet):
-    """ Para ver la Cartola de cada alumno """
     queryset = MovimientoCuenta.objects.all()
     serializer_class = MovimientoCuentaSerializer
     permission_classes = [IsAuthenticated]
@@ -306,11 +276,11 @@ class MovimientoCuentaViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
         if user.is_staff:
             return MovimientoCuenta.objects.all()
-        return MovimientoCuenta.objects.filter(cuenta__alumno__apoderado__user=user)
+        return MovimientoCuenta.objects.filter(cuenta__alumno__apoderados__user=user)
 
 
 # ==============================================================================
-# 3. FUNCIONES DE APOYO (API)
+# 3. FUNCIONES DE APOYO Y PRORRATEO
 # ==============================================================================
 
 @api_view(['GET'])
@@ -320,29 +290,19 @@ def quien_soy(request):
     data = serializer.data
     data['es_staff'] = request.user.is_staff          
     data['es_admin'] = request.user.is_superuser      
-    data['debe_cambiar_clave'] = False # 🔥 MODO TESTING 🔥
+    data['debe_cambiar_clave'] = False 
     return Response(data)
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser]) 
 def resumen_tesoreria(request):
-    """ Dashboard Matemático Inteligente del Tesorero """
-    
-    # 1. Total real en el banco (Abonos Aprobados)
     recaudado_banco = Abono.objects.filter(estado='APROBADO').aggregate(Sum('monto'))['monto__sum'] or 0
+    historico = CuentaAlumno.objects.aggregate(Sum('cuenta_ahorro'))['cuenta_ahorro__sum'] or 0
+    viaje_actual = Cargo.objects.filter(estado='PAGADO', concepto__destino='VIAJE').aggregate(Sum('monto_total'))['monto_total__sum'] or 0
     
-    # 2. Total para la Gira (Ahorro Histórico + Fondo Viaje Actual de todos)
-    historico = CuentaAlumno.objects.aggregate(Sum('ahorro_historico'))['ahorro_historico__sum'] or 0
-    viaje_actual = CuentaAlumno.objects.aggregate(Sum('fondo_viaje_actual'))['fondo_viaje_actual__sum'] or 0
     fondo_viaje_total = historico + viaje_actual
-    
-    # 3. Dinero flotante (Saldos a favor sin usar en las billeteras)
     dinero_billeteras = CuentaAlumno.objects.aggregate(Sum('saldo_disponible'))['saldo_disponible__sum'] or 0
-    
-    # 4. Dinero para terceros (Cargos pagados cuyo destino es EXTERNO)
     recaudacion_externa = Cargo.objects.filter(estado='PAGADO', concepto__destino='EXTERNO').aggregate(Sum('monto_total'))['monto_total__sum'] or 0
-    
-    # 5. Deuda morosa
     deuda_pendiente = Cargo.objects.filter(estado='PENDIENTE').aggregate(Sum('monto_total'))['monto_total__sum'] or 0
 
     return Response({
@@ -352,3 +312,43 @@ def resumen_tesoreria(request):
         'por_transferir_terceros': recaudacion_externa,
         'morosidad_pendiente': deuda_pendiente
     })
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def prorratear_monto(request):
+    """
+    Divide ganancias o gastos globales equitativamente entre los alumnos elegidos.
+    Body esperado: { "alumnos_ids": [1, 2, 3], "monto_total": 200000, "tipo": "INGRESO", "descripcion": "Rifa de Navidad" }
+    """
+    alumnos_ids = request.data.get('alumnos_ids', [])
+    monto_total = int(request.data.get('monto_total', 0))
+    tipo = request.data.get('tipo', 'INGRESO')
+    descripcion = request.data.get('descripcion', 'Repartición general')
+
+    if not alumnos_ids or monto_total <= 0:
+        return Response({"error": "Debes seleccionar alumnos y un monto válido."}, status=status.HTTP_400_BAD_REQUEST)
+
+    cantidad = len(alumnos_ids)
+    monto_individual = monto_total // cantidad
+    sobrante = monto_total % cantidad 
+
+    cuentas = CuentaAlumno.objects.filter(alumno__id__in=alumnos_ids)
+
+    for i, cuenta in enumerate(cuentas):
+        monto_aplicar = monto_individual + (1 if i < sobrante else 0)
+
+        if tipo == 'INGRESO':
+            cuenta.saldo_disponible += monto_aplicar
+        else:
+            cuenta.saldo_disponible -= monto_aplicar
+
+        cuenta.save()
+
+        MovimientoCuenta.objects.create(
+            cuenta=cuenta,
+            tipo=tipo,
+            monto=monto_aplicar,
+            descripcion=f"{descripcion} (Total: ${monto_total} dividido en {cantidad} alumnos)"
+        )
+
+    return Response({"mensaje": f"¡Éxito! Se aplicaron ${monto_individual} a la cuenta de {cantidad} alumnos."})

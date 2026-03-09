@@ -1,41 +1,26 @@
 from django.contrib import admin
-from .models import (
-    PerfilUsuario, 
-    Apoderado, 
-    Alumno, 
-    CuentaAlumno,      # NUEVO
-    ConceptoCobro, 
-    Cargo, 
-    Abono, 
-    MovimientoCuenta,  # NUEVO
-    Noticia, 
-    Evento
-)
+from .models import (PerfilUsuario, Apoderado, Alumno, CuentaAlumno, ConceptoCobro, Cargo, Abono, MovimientoCuenta, Noticia, Evento)
 
-# ==============================================================================
-# 1. SEGURIDAD Y PERFILES
-# ==============================================================================
 @admin.register(PerfilUsuario)
 class PerfilUsuarioAdmin(admin.ModelAdmin):
     list_display = ('usuario', 'debe_cambiar_clave')
     list_filter = ('debe_cambiar_clave',)
 
-# ==============================================================================
-# 2. ACTORES PRINCIPALES
-# ==============================================================================
 admin.site.register(Apoderado)
 
 @admin.register(Alumno)
 class AlumnoAdmin(admin.ModelAdmin):
-    list_display = ('nombre_completo', 'rut', 'curso', 'apoderado')
-    search_fields = ('nombre_completo', 'rut')
+    list_display = ('numero_lista', 'nombre_completo', 'curso', 'ver_apoderados')
+    search_fields = ('nombre_completo', 'numero_lista')
+    
+    def ver_apoderados(self, obj):
+        nombres = [str(apoderado) for apoderado in obj.apoderados.all()]
+        return ", ".join(nombres) if nombres else "Sin apoderado"
+    ver_apoderados.short_description = 'Apoderados'
 
-# ==============================================================================
-# 3. TESORERÍA Y FINANZAS
-# ==============================================================================
 @admin.register(CuentaAlumno)
 class CuentaAlumnoAdmin(admin.ModelAdmin):
-    list_display = ('alumno', 'ahorro_historico', 'fondo_viaje_actual', 'saldo_disponible', 'total_ahorrado_viaje')
+    list_display = ('alumno', 'cuenta_ahorro', 'saldo_disponible', 'total_viaje')
     search_fields = ('alumno__nombre_completo',)
 
 @admin.register(ConceptoCobro)
@@ -61,8 +46,5 @@ class MovimientoCuentaAdmin(admin.ModelAdmin):
     list_filter = ('tipo',)
     search_fields = ('cuenta__alumno__nombre_completo', 'descripcion')
 
-# ==============================================================================
-# 4. COMUNICACIÓN Y EVENTOS
-# ==============================================================================
 admin.site.register(Noticia)
 admin.site.register(Evento)

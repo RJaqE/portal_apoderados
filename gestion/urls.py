@@ -1,17 +1,18 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-# IMPORTANTE: Agregamos todas las vistas, incluyendo las nuevas de seguridad
+# IMPORTANTE: Agregamos todas las vistas, incluyendo las nuevas de seguridad y finanzas
 from .views import (
     AlumnoViewSet, 
     AbonoViewSet, 
     ConceptoViewSet, 
-    CargoViewSet,      # <--- OJO: Asegúrate de tener este si usas la gestión de cargos
-    quien_soy,         # <--- NUEVO IMPORT
-    NoticiaViewSet,    # <--- NUEVO IMPORT para noticias
-    resumen_tesoreria, # <--- NUEVO IMPORT para resumen de tesorería
-    EventoViewSet,     # <--- NUEVO IMPORT para eventos
-    MovimientoCuentaViewSet, # <--- NUEVO IMPORT para movimientos de cuenta
+    CargoViewSet,      
+    quien_soy,         
+    NoticiaViewSet,    
+    resumen_tesoreria, 
+    EventoViewSet,     
+    MovimientoCuentaViewSet, 
+    prorratear_monto,  # <--- NUEVO IMPORT (La función mágica de división de dinero)
     
     # === NUEVAS VISTAS DE SEGURIDAD ===
     SolicitarEnlaceSeguridad,
@@ -40,8 +41,9 @@ urlpatterns = [
     # Como 'quien_soy' es una función solitaria, va aquí aparte:
     path('quien-soy/', quien_soy, name='quien_soy'),
     
-    # RUTA PARA EL RESUMEN DE TESORERÍA
+    # === RUTAS PARA TESORERÍA ===
     path('resumen-tesoreria/', resumen_tesoreria, name='resumen_tesoreria'),
+    path('prorrateo/', prorratear_monto, name='prorrateo'), # <--- NUEVA RUTA CONECTADA AL FRONTEND
 
     # === RUTAS DE SEGURIDAD (RECUPERACIÓN Y CAMBIO DE CLAVES) ===
     path('seguridad/solicitar-enlace/', SolicitarEnlaceSeguridad.as_view(), name='solicitar-enlace'),
