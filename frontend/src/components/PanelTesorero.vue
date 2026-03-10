@@ -226,16 +226,29 @@ const procesarPagoConBilletera = async () => {
                 </div>
 
                 <div v-if="mostrandoFormCobro" class="form-crear-cobro">
-                    <div class="campo">
-                        <label>Nombre del Cobro:</label>
-                        <input type="text" v-model="nuevoConcepto.nombre" placeholder="Ej: Cuota Abril" />
-                    </div>
-                    <div class="campo" style="margin-top: 10px;">
-                        <label>Monto ($):</label>
-                        <input type="number" v-model="nuevoConcepto.monto_estandar" placeholder="Ej: 5000" />
+                    <div class="grupo-inputs-cobro">
+                        <div class="campo">
+                            <label>Nombre del Cobro:</label>
+                            <input type="text" v-model="nuevoConcepto.nombre" placeholder="Ej: Cuota Abril" />
+                        </div>
+                        <div class="campo">
+                            <label>Monto ($):</label>
+                            <input type="number" v-model="nuevoConcepto.monto_estandar" placeholder="Ej: 5000" />
+                        </div>
+                        <div class="campo">
+                            <label>Vencimiento:</label>
+                            <input type="date" v-model="nuevoConcepto.fecha_vencimiento" />
+                        </div>
+                        <div class="campo">
+                            <label>Destino de la plata:</label>
+                            <select v-model="nuevoConcepto.destino">
+                                <option value="VIAJE">Ahorro Fondo de Viaje</option>
+                                <option value="EXTERNO">Pago a Terceros (Rifa, Alianza)</option>
+                            </select>
+                        </div>
                     </div>
                     <button @click="crearConceptoCobro" class="btn-guardar-cobro"
-                        style="margin-top: 15px; width: 100%;">Guardar Concepto</button>
+                        style="margin-top: 15px; width: 100%;">Guardar Concepto en Sistema</button>
                 </div>
 
                 <div class="controles-masivos" style="margin-top: 20px;">
@@ -305,7 +318,7 @@ const procesarPagoConBilletera = async () => {
                 </div>
                 <div class="toggle-lista" @click="mostrandoListaAlumnos = !mostrandoListaAlumnos">
                     <span>{{ mostrandoListaAlumnos ? '🔽 Ocultar lista individual' : '▶️ Ver/Editar lista individual'
-                        }}</span>
+                    }}</span>
                     <small>({{ alumnosSeleccionados.length }} de {{ alumnos.length }} alumnos seleccionados)</small>
                 </div>
                 <div v-show="mostrandoListaAlumnos" class="lista-alumnos-check">
@@ -367,7 +380,7 @@ const procesarPagoConBilletera = async () => {
                         </div>
                         <div class="flex-row align-center" style="margin-top: 5px;">
                             <small>Ref: {{ abono.comprobante || '---' }} <br> Estado: <span :class="abono.estado">{{
-                                    abono.estado }}</span></small>
+                                abono.estado }}</span></small>
                             <button @click.stop="eliminarAbono(abono.id)" class="btn-eliminar-abono"
                                 title="Borrar Ingreso">🗑️</button>
                         </div>
