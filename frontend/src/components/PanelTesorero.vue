@@ -8,7 +8,7 @@ const alumnoSeleccionado = ref(null)
 const cargoSeleccionado = ref(null)
 const historialTransacciones = ref([])
 
-// === 1. SELECCIÓN MASIVA DE ALUMNOS (Compartido para Cobros y Prorrateo) ===
+// === 1. SELECCIÓN MASIVA DE ALUMNOS (Compartido) ===
 const alumnosSeleccionados = ref([])
 const mostrandoListaAlumnos = ref(false)
 
@@ -31,34 +31,41 @@ const mostrandoFormProrrateo = ref(false)
 const procesandoProrrateo = ref(false)
 const nuevoProrrateo = ref({
     monto_total: '',
-    tipo: 'INGRESO', // INGRESO (Ganancia Rifa) o EGRESO (Gasto Bus)
+    tipo: 'INGRESO',
     descripcion: ''
 })
 
-// === 4. DEPÓSITO A PLAZO (AHORRO GLOBAL DEL CURSO) - ¡NUEVO! ===
+// === 4. DEPÓSITO A PLAZO (AHORRO GLOBAL DEL CURSO) - ¡CORREGIDO! ===
 const editandoDeposito = ref(false)
-// Nota: Temporalmente guardado en memoria frontend. En el futuro se puede conectar a la BD.
 const deposito = ref({
     monto: 4000000,
     fecha_inicio: new Date().toISOString().split('T')[0],
-    fecha_fin: '2026-06-30'
+    fecha_fin: '2026-06-30',
+    alumnos_ids: [] // 👈 AQUÍ SE GUARDA LA "FOTO" CONGELADA DE LOS ALUMNOS
 })
 
-// Calculadora automática: Divide el monto total entre los alumnos con check
+// Calculadora automática: Usa los checkboxes en vivo SOLO si estamos editando. 
+// Si no, usa la foto congelada (deposito.alumnos_ids).
 const cuotaAhorro = computed(() => {
-    if (alumnosSeleccionados.value.length === 0 || !deposito.value.monto) return 0;
-    return Math.floor(deposito.value.monto / alumnosSeleccionados.value.length);
+    const idsActivos = editandoDeposito.value ? alumnosSeleccionados.value : deposito.value.alumnos_ids;
+    if (idsActivos.length === 0 || !deposito.value.monto) return 0;
+    return Math.floor(deposito.value.monto / idsActivos.length);
 })
 
-// Filtra los objetos alumno completos basándose en los checkboxes seleccionados
+// Lista visual de los alumnos beneficiarios, responde al mismo congelador.
 const listaAlumnosAhorro = computed(() => {
-    return alumnos.value.filter(a => alumnosSeleccionados.value.includes(a.id));
+    const idsActivos = editandoDeposito.value ? alumnosSeleccionados.value : deposito.value.alumnos_ids;
+    return alumnos.value.filter(a => idsActivos.includes(a.id));
 })
 
 const guardarDeposito = () => {
     if (!deposito.value.monto || deposito.value.monto <= 0) return alert("Ingresa un monto válido");
+    if (alumnosSeleccionados.value.length === 0) return alert("Selecciona al menos un alumno en la lista de abajo para este depósito.");
+
+    // 📸 CLICK! Tomamos la foto de los seleccionados y la guardamos en la memoria del depósito
+    deposito.value.alumnos_ids = [...alumnosSeleccionados.value];
     editandoDeposito.value = false;
-    alert("🏦 Depósito a plazo actualizado. El prorrateo se ha recalculado automáticamente.");
+    alert("🏦 Depósito actualizado. Los valores y los alumnos beneficiarios han quedado congelados.");
 }
 
 // === 5. INGRESO RÁPIDO DE ABONOS ===
@@ -73,6 +80,9 @@ const cargarDatosGlobales = async () => {
         const resAlumnos = await api.get('mis-alumnos/')
         alumnos.value = resAlumnos.data
         alumnosSeleccionados.value = alumnos.value.map(a => a.id)
+
+        // Al iniciar la app por primera vez, el depósito asume que es para todo el curso actual
+        deposito.value.alumnos_ids = [...alumnosSeleccionados.value]
 
         const resConceptos = await api.get('conceptos/')
         conceptos.value = resConceptos.data
@@ -376,7 +386,8 @@ const procesarPagoConBilletera = async () => {
                         <strong style="color: #27ae60; font-size: 1.3em;">{{ formatearDinero(cuotaAhorro) }}</strong>
                     </div>
                     <p style="font-size: 0.8em; color: #555; text-align: center; margin-top: 10px;">
-                        Prorrateado entre <strong>{{ alumnosSeleccionados.length }}</strong> alumnos seleccionados:
+                        Prorrateado entre <strong>{{ editandoDeposito ? alumnosSeleccionados.length :
+                            deposito.alumnos_ids.length }}</strong> alumnos beneficiarios:
                     </p>
 
                     <div class="lista-nombres-ahorro">
@@ -605,8 +616,6 @@ const procesarPagoConBilletera = async () => {
     background-color: #e3f2fd;
     border: 1px solid #90caf9;
 }
-
-/* Nuevo color celeste */
 
 .header-masivo {
     display: flex;
