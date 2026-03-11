@@ -26,7 +26,7 @@ const nuevoConcepto = ref({
     nombre: '', monto_estandar: '', fecha_vencimiento: new Date().toISOString().split('T')[0], destino: 'VIAJE'
 })
 
-// === 3. GESTIÓN DE PRORRATEO (Repartir Dinero) - ¡NUEVO! ===
+// === 3. GESTIÓN DE PRORRATEO (Repartir Dinero Billetera) ===
 const mostrandoFormProrrateo = ref(false)
 const procesandoProrrateo = ref(false)
 const nuevoProrrateo = ref({
@@ -35,7 +35,33 @@ const nuevoProrrateo = ref({
     descripcion: ''
 })
 
-// === 4. INGRESO RÁPIDO DE ABONOS ===
+// === 4. DEPÓSITO A PLAZO (AHORRO GLOBAL DEL CURSO) - ¡NUEVO! ===
+const editandoDeposito = ref(false)
+// Nota: Temporalmente guardado en memoria frontend. En el futuro se puede conectar a la BD.
+const deposito = ref({
+    monto: 4000000,
+    fecha_inicio: new Date().toISOString().split('T')[0],
+    fecha_fin: '2026-06-30'
+})
+
+// Calculadora automática: Divide el monto total entre los alumnos con check
+const cuotaAhorro = computed(() => {
+    if (alumnosSeleccionados.value.length === 0 || !deposito.value.monto) return 0;
+    return Math.floor(deposito.value.monto / alumnosSeleccionados.value.length);
+})
+
+// Filtra los objetos alumno completos basándose en los checkboxes seleccionados
+const listaAlumnosAhorro = computed(() => {
+    return alumnos.value.filter(a => alumnosSeleccionados.value.includes(a.id));
+})
+
+const guardarDeposito = () => {
+    if (!deposito.value.monto || deposito.value.monto <= 0) return alert("Ingresa un monto válido");
+    editandoDeposito.value = false;
+    alert("🏦 Depósito a plazo actualizado. El prorrateo se ha recalculado automáticamente.");
+}
+
+// === 5. INGRESO RÁPIDO DE ABONOS ===
 const mostrandoFormularioAbono = ref(false)
 const nuevoAbono = ref({
     monto: '', fecha_transferencia: new Date().toISOString().split('T')[0], comprobante: ''
@@ -124,7 +150,7 @@ const ejecutarCobroMasivo = async () => {
     finally { procesandoMasivo.value = false }
 }
 
-// 👇 NUEVO: FUNCIÓN DE PRORRATEO
+// === FUNCIÓN DE PRORRATEO (BILLETERA) ===
 const ejecutarProrrateo = async () => {
     if (!nuevoProrrateo.value.monto_total || nuevoProrrateo.value.monto_total <= 0) return alert("Ingresa un monto total válido.")
     if (!nuevoProrrateo.value.descripcion) return alert("Ingresa una descripción para la cartola.")
@@ -269,7 +295,7 @@ const procesarPagoConBilletera = async () => {
 
             <div class="panel-masivo panel-prorrateo">
                 <div class="header-masivo">
-                    <h3>🍕 Repartir Dinero (Prorrateo)</h3>
+                    <h3>🍕 Repartir a Billeteras</h3>
                     <button @click="mostrandoFormProrrateo = !mostrandoFormProrrateo" class="btn-toggle-prorrateo">
                         {{ mostrandoFormProrrateo ? '❌ Cerrar' : '🧮 Abrir Calculadora' }}
                     </button>
@@ -301,16 +327,74 @@ const procesarPagoConBilletera = async () => {
                         {{ procesandoProrrateo ? 'Calculando...' : '🪄 Repartir entre los seleccionados' }}
                     </button>
                     <p style="font-size: 0.8em; color: #7f8c8d; margin-top: 10px; text-align: center;">
-                        El sistema dividirá el monto en partes iguales y lo registrará en las cuentas de los alumnos
-                        marcados en la lista de abajo.
+                        Divide el monto y lo inyecta a las billeteras de los alumnos marcados abajo.
                     </p>
                 </div>
             </div>
+
+            <div class="panel-masivo panel-deposito">
+                <div class="header-masivo">
+                    <h3>🏦 Depósito a Plazo</h3>
+                    <button @click="editandoDeposito = !editandoDeposito" class="btn-toggle-deposito">
+                        {{ editandoDeposito ? '❌ Cancelar' : '✏️ Editar' }}
+                    </button>
+                </div>
+
+                <div v-if="!editandoDeposito" class="info-deposito" style="text-align: center; margin-top: 15px;">
+                    <h2 style="color: #2980b9; font-size: 2.2em; margin: 0;">{{ formatearDinero(deposito.monto) }}</h2>
+                    <p style="color: #7f8c8d; font-size: 0.9em; margin-top: 5px;">
+                        📅 Desde: <strong>{{ deposito.fecha_inicio }}</strong><br>
+                        ⏳ Vence: <strong>{{ deposito.fecha_fin }}</strong>
+                    </p>
+                </div>
+
+                <div v-else class="form-crear-cobro" style="border-color: #3498db;">
+                    <div class="campo" style="margin-bottom: 10px;">
+                        <label>Monto Total ($):</label>
+                        <input type="number" v-model="deposito.monto" />
+                    </div>
+                    <div class="grupo-inputs-cobro">
+                        <div class="campo">
+                            <label>Fecha Inicio:</label>
+                            <input type="date" v-model="deposito.fecha_inicio" />
+                        </div>
+                        <div class="campo">
+                            <label>Fecha Vencimiento:</label>
+                            <input type="date" v-model="deposito.fecha_fin" />
+                        </div>
+                    </div>
+                    <button @click="guardarDeposito" class="btn-guardar-cobro"
+                        style="background-color: #3498db; margin-top: 15px; width: 100%;">💾 Guardar Cambios</button>
+                </div>
+
+                <hr class="divisor-masivo" style="background: #bbdefb; margin: 15px 0;" />
+
+                <div class="calculadora-deposito">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #bbdefb;">
+                        <span style="font-weight: bold; color: #2c3e50;">Saldo por alumno:</span>
+                        <strong style="color: #27ae60; font-size: 1.3em;">{{ formatearDinero(cuotaAhorro) }}</strong>
+                    </div>
+                    <p style="font-size: 0.8em; color: #555; text-align: center; margin-top: 10px;">
+                        Prorrateado entre <strong>{{ alumnosSeleccionados.length }}</strong> alumnos seleccionados:
+                    </p>
+
+                    <div class="lista-nombres-ahorro">
+                        <div v-for="al in listaAlumnosAhorro" :key="al.id" class="nombre-mini">
+                            {{ al.numero_lista }}. {{ al.nombre_completo }}
+                        </div>
+                        <div v-if="listaAlumnosAhorro.length === 0" class="hint" style="text-align:center;">
+                            Marca alumnos en la lista inferior para ver el cálculo.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <div class="seccion-cobro-alumnos" style="margin-bottom: 30px;">
             <label style="font-size: 1.1em; font-weight: bold; color: #2c3e50;">👥 Lista de Alumnos para aplicar
-                acciones masivas:</label>
+                acciones y cálculos:</label>
             <div class="caja-checkboxes">
                 <div class="checkbox-item todos">
                     <input type="checkbox" id="chkTodos" v-model="seleccionarTodos">
@@ -318,7 +402,7 @@ const procesarPagoConBilletera = async () => {
                 </div>
                 <div class="toggle-lista" @click="mostrandoListaAlumnos = !mostrandoListaAlumnos">
                     <span>{{ mostrandoListaAlumnos ? '🔽 Ocultar lista individual' : '▶️ Ver/Editar lista individual'
-                    }}</span>
+                        }}</span>
                     <small>({{ alumnosSeleccionados.length }} de {{ alumnos.length }} alumnos seleccionados)</small>
                 </div>
                 <div v-show="mostrandoListaAlumnos" class="lista-alumnos-check">
@@ -380,7 +464,7 @@ const procesarPagoConBilletera = async () => {
                         </div>
                         <div class="flex-row align-center" style="margin-top: 5px;">
                             <small>Ref: {{ abono.comprobante || '---' }} <br> Estado: <span :class="abono.estado">{{
-                                abono.estado }}</span></small>
+                                    abono.estado }}</span></small>
                             <button @click.stop="eliminarAbono(abono.id)" class="btn-eliminar-abono"
                                 title="Borrar Ingreso">🗑️</button>
                         </div>
@@ -500,7 +584,7 @@ const procesarPagoConBilletera = async () => {
 /* === ZONA MASIVA GRID === */
 .zona-masiva-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
     gap: 20px;
     margin-bottom: 20px;
 }
@@ -517,6 +601,13 @@ const procesarPagoConBilletera = async () => {
     border: 1px solid #a5d6a7;
 }
 
+.panel-deposito {
+    background-color: #e3f2fd;
+    border: 1px solid #90caf9;
+}
+
+/* Nuevo color celeste */
+
 .header-masivo {
     display: flex;
     justify-content: space-between;
@@ -532,6 +623,10 @@ const procesarPagoConBilletera = async () => {
 
 .panel-prorrateo .header-masivo h3 {
     color: #2e7d32;
+}
+
+.panel-deposito .header-masivo h3 {
+    color: #1976d2;
 }
 
 .btn-toggle-cobro {
@@ -568,6 +663,23 @@ const procesarPagoConBilletera = async () => {
     color: white;
 }
 
+.btn-toggle-deposito {
+    background: white;
+    border: 1px solid #1976d2;
+    color: #1976d2;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.85em;
+    transition: 0.2s;
+}
+
+.btn-toggle-deposito:hover {
+    background: #1976d2;
+    color: white;
+}
+
 .form-crear-cobro {
     background: white;
     padding: 15px;
@@ -585,7 +697,7 @@ const procesarPagoConBilletera = async () => {
 
 .grupo-inputs-cobro {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px;
 }
 
@@ -657,6 +769,27 @@ const procesarPagoConBilletera = async () => {
 
 .btn-prorratear:hover {
     background-color: #1b5e20;
+}
+
+.lista-nombres-ahorro {
+    background: white;
+    border: 1px solid #bbdefb;
+    border-radius: 6px;
+    padding: 10px;
+    max-height: 140px;
+    overflow-y: auto;
+    margin-top: 10px;
+}
+
+.nombre-mini {
+    font-size: 0.85em;
+    padding: 4px 0;
+    border-bottom: 1px dashed #eee;
+    color: #34495e;
+}
+
+.nombre-mini:last-child {
+    border-bottom: none;
 }
 
 .caja-checkboxes {
@@ -1076,7 +1209,7 @@ const procesarPagoConBilletera = async () => {
 }
 
 .auditoria-contenedor h3 {
-    margin-top: 0;
+    margin: 0;
     color: #2c3e50;
     border-bottom: 2px solid #eee;
     padding-bottom: 10px;
