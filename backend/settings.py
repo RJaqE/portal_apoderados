@@ -105,11 +105,16 @@ else:
             'ENGINE': 'django.db.backends.mysql',
             'NAME': 'portal_apoderados_db',
             'USER': 'root',
-            'PASSWORD': 'Carla2012',
+            'PASSWORD': 'Carla2012', # <-- (Ojo, que aquí sigue estando tu clave local, que no afecta a producción, pero está bien tenerlo como lo tenías)
             'HOST': 'localhost',
             'PORT': '3306',
         }
     }
+
+# 🚀 CONEXIÓN FORZADA A PRODUCCIÓN (SOLO PARA MIGRAR AHORA) 🚀
+#DATABASES = {
+#    'default': dj_database_url.parse('mysql://root:ObigzOmyYEBFmUMtosQLLWHWRvIzMqNP@switchyard.proxy.rlwy.net:39251/railway')
+#}
 
 # Tipo de campo automático por defecto para las llaves primarias (IDs)
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

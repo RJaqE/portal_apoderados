@@ -20,7 +20,7 @@ def crear_perfil_usuario(sender, instance, created, **kwargs):
 # === 2. ACTORES PRINCIPALES ===
 class Apoderado(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    rut = models.CharField(max_length=12, unique=True)
+    rut = models.CharField(max_length=12, unique=True, blank=True, null=True) # 👈 Agregado blank y null
     telefono = models.CharField(max_length=15, blank=True)
 
     def __str__(self):

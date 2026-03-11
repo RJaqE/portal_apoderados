@@ -107,11 +107,11 @@ const formatearFecha = (fechaString) => {
                 </div>
                 <div class="datos-grid">
                     <div class="dato-item"><small>Banco&nbsp;</small><strong>BancoEstado</strong></div>
-                    <div class="dato-item"><small>Tipo de Cuenta</small><strong>Cuenta RUT</strong></div>
-                    <div class="dato-item"><small>N° Cuenta</small><strong>12.345.678-9</strong></div>
-                    <div class="dato-item"><small>Nombre</small><strong>Tesorería Curso 8B</strong></div>
-                    <div class="dato-item"><small>RUT</small><strong>12.345.678-9</strong></div>
-                    <div class="dato-item"><small>Correo</small><strong>tesoreria8b@colegio.cl</strong></div>
+                    <div class="dato-item"><small>Tipo de Cuenta&nbsp;</small><strong>Cuenta RUT</strong></div>
+                    <div class="dato-item"><small>N° Cuenta&nbsp;</small><strong>12.345.678-9</strong></div>
+                    <div class="dato-item"><small>Nombre&nbsp;</small><strong>Tesorería Curso 8B</strong></div>
+                    <div class="dato-item"><small>RUT&nbsp;</small><strong>12.345.678-9</strong></div>
+                    <div class="dato-item"><small>Correo&nbsp;</small><strong>tesoreria8b@colegio.cl</strong></div>
                 </div>
             </div>
 
