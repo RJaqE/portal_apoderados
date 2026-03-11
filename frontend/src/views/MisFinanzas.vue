@@ -106,7 +106,7 @@ const formatearFecha = (fechaString) => {
                     <small>Recuerda enviar tu comprobante a la tesorería para que sea validado.</small>
                 </div>
                 <div class="datos-grid">
-                    <div class="dato-item"><small>Banco</small><strong>BancoEstado</strong></div>
+                    <div class="dato-item"><small>Banco&nbsp;</small><strong>BancoEstado</strong></div>
                     <div class="dato-item"><small>Tipo de Cuenta</small><strong>Cuenta RUT</strong></div>
                     <div class="dato-item"><small>N° Cuenta</small><strong>12.345.678-9</strong></div>
                     <div class="dato-item"><small>Nombre</small><strong>Tesorería Curso 8B</strong></div>
