@@ -16,11 +16,11 @@ onMounted(async () => {
         const resUser = await api.get('quien-soy/')
         esStaff.value = resUser.data.es_staff || resUser.data.es_admin
 
-        // 2. Cargamos Alumnos (El backend envía todos al Staff, o solo los pupilos al Apoderado)
+        // 2. Cargamos Alumnos
         const resAlumnos = await api.get('mis-alumnos/')
         alumnos.value = resAlumnos.data
 
-        // 3. Seleccionamos el primer alumno por defecto automáticamente (para todos)
+        // 3. Seleccionamos el primer alumno por defecto
         if (alumnos.value.length > 0) {
             setTimeout(() => {
                 if (alumnosOrdenados.value.length > 0) {
@@ -52,10 +52,8 @@ const alumnosOrdenados = computed(() => {
         return { ...a, nombre_lista_frontend: nombreFormateado }
     })
 
-    // Ordenar alfabéticamente
     listaProcesada.sort((a, b) => a.nombre_lista_frontend.localeCompare(b.nombre_lista_frontend))
 
-    // Filtro de búsqueda (útil para el staff)
     if (busquedaAlumno.value) {
         const termino = busquedaAlumno.value.toLowerCase()
         listaProcesada = listaProcesada.filter(a =>
@@ -66,19 +64,33 @@ const alumnosOrdenados = computed(() => {
     return listaProcesada
 })
 
-// Alumno activo para llenar las columnas 2 y 3
+// Alumno activo para llenar la zona de datos
 const alumnoActivo = computed(() => {
     return alumnos.value.find(a => a.id === alumnoSeleccionadoId.value) || null
 })
 
-// Cálculos matemáticos de la vista
+// Cálculos matemáticos
 const totalTransferencias = computed(() => {
     if (!alumnoActivo.value || !alumnoActivo.value.abonos) return 0
     return alumnoActivo.value.abonos.reduce((sum, abono) => sum + parseFloat(abono.monto || 0), 0)
 })
 
+// 👇 MAGIA NUEVA: Auto-Scroll Inteligente para móviles
 const seleccionarAlumno = (id) => {
-    alumnoSeleccionadoId.value = id
+    alumnoSeleccionadoId.value = id;
+
+    // Le damos un respiro a Vue para que renderice los datos y luego bajamos
+    setTimeout(() => {
+        // Solo hacemos auto-scroll si estamos en una pantalla pequeña (celular/tablet)
+        if (window.innerWidth <= 900) {
+            const zonaDatos = document.getElementById('seccion-datos-alumno');
+            if (zonaDatos) {
+                // Calculamos la posición exacta restando unos pixeles para que no quede pegado al borde absoluto
+                const offsetY = zonaDatos.getBoundingClientRect().top + window.scrollY - 10;
+                window.scrollTo({ top: offsetY, behavior: 'smooth' });
+            }
+        }
+    }, 50);
 }
 
 const formatearDinero = (monto) => {
@@ -87,7 +99,7 @@ const formatearDinero = (monto) => {
 
 const formatearFecha = (fechaString) => {
     if (!fechaString) return '---'
-    const partes = fechaString.split('-') // Asume YYYY-MM-DD
+    const partes = fechaString.split('-')
     if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`
     return fechaString
 }
@@ -106,18 +118,18 @@ const formatearFecha = (fechaString) => {
                     <small>Recuerda enviar tu comprobante a la tesorería para que sea validado.</small>
                 </div>
                 <div class="datos-grid">
-                    <div class="dato-item"><small>Banco&nbsp;</small><strong>BancoEstado</strong></div>
-                    <div class="dato-item"><small>Tipo de Cuenta&nbsp;</small><strong>Cuenta RUT</strong></div>
-                    <div class="dato-item"><small>N° Cuenta&nbsp;</small><strong>12.345.678-9</strong></div>
-                    <div class="dato-item"><small>Nombre&nbsp;</small><strong>Tesorería Curso 8B</strong></div>
-                    <div class="dato-item"><small>RUT&nbsp;</small><strong>12.345.678-9</strong></div>
-                    <div class="dato-item"><small>Correo&nbsp;</small><strong>tesoreria8b@colegio.cl</strong></div>
+                    <div class="dato-item"><small>Banco</small><strong>BancoEstado</strong></div>
+                    <div class="dato-item"><small>Tipo de Cuenta</small><strong>Cuenta RUT</strong></div>
+                    <div class="dato-item"><small>N° Cuenta</small><strong>12.345.678-9</strong></div>
+                    <div class="dato-item"><small>Nombre</small><strong>Tesorería Curso 8B</strong></div>
+                    <div class="dato-item"><small>RUT</small><strong>12.345.678-9</strong></div>
+                    <div class="dato-item"><small>Correo</small><strong>tesoreria8b@colegio.cl</strong></div>
                 </div>
             </div>
 
-            <div class="layout-3-columnas">
+            <div class="layout-principal">
 
-                <aside class="columna columna-lista">
+                <aside class="columna-sidebar">
                     <div class="encabezado-col">
                         <h3>👥 {{ esStaff ? 'Curso (' + alumnosOrdenados.length + ')' : 'Mis Pupilos' }}</h3>
                     </div>
@@ -140,72 +152,90 @@ const formatearFecha = (fechaString) => {
                     </ul>
                 </aside>
 
-                <section class="columna columna-datos">
-                    <div class="encabezado-col color-transferencias">
-                        <h3>💸 Transferencias Realizadas</h3>
+                <div class="area-datos" id="seccion-datos-alumno">
+
+                    <div v-if="alumnoActivo" class="header-sticky-alumno">
+                        <div class="avatar-mini">{{ alumnoActivo.nombre_completo.charAt(0) }}</div>
+                        <div class="info-sticky">
+                            <small>Viendo finanzas de:</small>
+                            <span class="nombre-sticky">{{ alumnoActivo.nombre_completo }}</span>
+                        </div>
                     </div>
 
-                    <div class="contenedor-tabla" v-if="alumnoActivo">
-                        <table class="tabla-compacta" v-if="alumnoActivo.abonos && alumnoActivo.abonos.length > 0">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Detalle</th>
-                                    <th style="text-align: right;">Monto</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="abono in alumnoActivo.abonos" :key="abono.id">
-                                    <td class="texto-menor">{{ formatearFecha(abono.fecha_transferencia) }}</td>
-                                    <td class="texto-menor">{{ abono.comprobante || 'Depósito' }}</td>
-                                    <td style="text-align: right; font-weight: bold; color: #27ae60;">
-                                        +{{ formatearDinero(abono.monto) }}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <p v-else class="hint-vacio">No hay transferencias registradas.</p>
-                    </div>
+                    <div class="grid-tablas">
 
-                    <div class="pie-columna" v-if="alumnoActivo">
-                        <span>Total Transferido:</span>
-                        <strong style="color: #27ae60; font-size: 1.1em;">{{ formatearDinero(totalTransferencias)
-                            }}</strong>
-                    </div>
-                </section>
+                        <section class="columna-datos">
+                            <div class="encabezado-col color-transferencias">
+                                <h3>💸 Transferencias Realizadas</h3>
+                            </div>
 
-                <section class="columna columna-datos">
-                    <div class="encabezado-col color-cobros">
-                        <h3>📋 Cuotas y Cobros</h3>
-                    </div>
+                            <div class="contenedor-tabla" v-if="alumnoActivo">
+                                <table class="tabla-compacta"
+                                    v-if="alumnoActivo.abonos && alumnoActivo.abonos.length > 0">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Detalle</th>
+                                            <th style="text-align: right;">Monto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="abono in alumnoActivo.abonos" :key="abono.id">
+                                            <td class="texto-menor">{{ formatearFecha(abono.fecha_transferencia) }}</td>
+                                            <td class="texto-menor">{{ abono.comprobante || 'Depósito' }}</td>
+                                            <td style="text-align: right; font-weight: bold; color: #27ae60;">
+                                                +{{ formatearDinero(abono.monto) }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p v-else class="hint-vacio">No hay transferencias registradas.</p>
+                            </div>
 
-                    <div class="contenedor-tabla" v-if="alumnoActivo">
-                        <table class="tabla-compacta" v-if="alumnoActivo.cargos && alumnoActivo.cargos.length > 0">
-                            <thead>
-                                <tr>
-                                    <th>Concepto</th>
-                                    <th>Vence</th>
-                                    <th style="text-align: right;">Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="cargo in alumnoActivo.cargos" :key="cargo.id">
-                                    <td>
-                                        <strong>{{ cargo.concepto_nombre }}</strong><br>
-                                        <span class="texto-menor">{{ formatearDinero(cargo.monto_total) }}</span>
-                                    </td>
-                                    <td class="texto-menor">{{ formatearFecha(cargo.fecha_vencimiento ||
-                                        cargo.concepto_fecha_vencimiento) }}</td>
-                                    <td style="text-align: right;">
-                                        <span class="badge-estado-mini" :class="cargo.estado">{{ cargo.estado }}</span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                        <p v-else class="hint-vacio">No hay deudas registradas.</p>
-                    </div>
-                </section>
+                            <div class="pie-columna" v-if="alumnoActivo">
+                                <span>Total Transferido:</span>
+                                <strong style="color: #27ae60; font-size: 1.1em;">{{
+                                    formatearDinero(totalTransferencias) }}</strong>
+                            </div>
+                        </section>
 
+                        <section class="columna-datos">
+                            <div class="encabezado-col color-cobros">
+                                <h3>📋 Cuotas y Cobros</h3>
+                            </div>
+
+                            <div class="contenedor-tabla" v-if="alumnoActivo">
+                                <table class="tabla-compacta"
+                                    v-if="alumnoActivo.cargos && alumnoActivo.cargos.length > 0">
+                                    <thead>
+                                        <tr>
+                                            <th>Concepto</th>
+                                            <th>Vence</th>
+                                            <th style="text-align: right;">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="cargo in alumnoActivo.cargos" :key="cargo.id">
+                                            <td>
+                                                <strong>{{ cargo.concepto_nombre }}</strong><br>
+                                                <span class="texto-menor">{{ formatearDinero(cargo.monto_total)
+                                                    }}</span>
+                                            </td>
+                                            <td class="texto-menor">{{ formatearFecha(cargo.fecha_vencimiento ||
+                                                cargo.concepto_fecha_vencimiento) }}</td>
+                                            <td style="text-align: right;">
+                                                <span class="badge-estado-mini" :class="cargo.estado">{{ cargo.estado
+                                                    }}</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p v-else class="hint-vacio">No hay deudas registradas.</p>
+                            </div>
+                        </section>
+
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -234,7 +264,7 @@ const formatearFecha = (fechaString) => {
     font-size: 1.8rem;
 }
 
-/* === TARJETA BANCO === */
+/* === TARJETA BANCO (Tu diseño renovado) === */
 .tarjeta-banco {
     background: #f8fbff;
     border: 1px solid #cce5ff;
@@ -252,29 +282,49 @@ const formatearFecha = (fechaString) => {
 .header-banco small {
     color: #666;
     display: block;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
 }
 
 .datos-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 10px;
-    font-size: 0.9em;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 15px;
     background: white;
-    padding: 10px;
-    border-radius: 6px;
+    padding: 15px;
+    border-radius: 8px;
     border: 1px dashed #b8daff;
+    text-align: center;
 }
 
-/* === LAYOUT 3 COLUMNAS === */
-.layout-3-columnas {
+.dato-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.dato-item small {
+    color: #7f8c8d;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.dato-item strong {
+    color: #2c3e50;
+    font-size: 1.05em;
+}
+
+/* === NUEVO LAYOUT (SIDEBAR + AREA DATOS) === */
+.layout-principal {
     display: grid;
-    grid-template-columns: 260px 1fr 1fr;
+    grid-template-columns: 280px 1fr;
     gap: 20px;
     align-items: start;
 }
 
-.columna {
+/* === IZQUIERDA: SIDEBAR LISTA === */
+.columna-sidebar {
     background: white;
     border-radius: 10px;
     border: 1px solid #eaeaea;
@@ -297,15 +347,6 @@ const formatearFecha = (fechaString) => {
     color: #2c3e50;
 }
 
-.color-transferencias {
-    border-top: 4px solid #27ae60;
-}
-
-.color-cobros {
-    border-top: 4px solid #f39c12;
-}
-
-/* === COLUMNA 1: LISTA === */
 .buscador-wrapper {
     padding: 10px;
     border-bottom: 1px solid #f0f0f0;
@@ -324,8 +365,7 @@ const formatearFecha = (fechaString) => {
     list-style: none;
     padding: 0;
     margin: 0;
-    max-height: 400px;
-    /* Evita que crezca infinito */
+    max-height: 450px;
     overflow-y: auto;
 }
 
@@ -373,7 +413,86 @@ const formatearFecha = (fechaString) => {
     text-overflow: ellipsis;
 }
 
-/* === COLUMNAS 2 Y 3: TABLAS COMPACTAS === */
+/* === DERECHA: AREA DE DATOS Y STICKY HEADER === */
+.area-datos {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* 📌 LA MAGIA STICKY */
+.header-sticky-alumno {
+    position: sticky;
+    top: 5px;
+    /* Se pega a 5px del techo al scrollear */
+    z-index: 10;
+    background: #2c3e50;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.header-sticky-alumno .avatar-mini {
+    background: #3498db;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border: 2px solid white;
+}
+
+.info-sticky {
+    display: flex;
+    flex-direction: column;
+}
+
+.info-sticky small {
+    color: #bdc3c7;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.nombre-sticky {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-top: 2px;
+}
+
+/* === GRILLA INTERNA PARA TABLAS === */
+.grid-tablas {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.columna-datos {
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #eaeaea;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.color-transferencias {
+    border-top: 4px solid #27ae60;
+}
+
+.color-cobros {
+    border-top: 4px solid #f39c12;
+}
+
 .contenedor-tabla {
     flex-grow: 1;
     max-height: 400px;
@@ -452,21 +571,27 @@ const formatearFecha = (fechaString) => {
     font-size: 0.95em;
 }
 
-/* === RESPONSIVO === */
+/* === RESPONSIVO (La magia ocurre aquí) === */
 @media (max-width: 900px) {
-    .layout-3-columnas {
+    .layout-principal {
         grid-template-columns: 1fr;
-        /* Todo en una columna hacia abajo */
+        /* Apila el sidebar y el área de datos */
         gap: 15px;
     }
 
-    .lista-nombres {
-        max-height: 200px;
+    .grid-tablas {
+        grid-template-columns: 1fr;
+        /* Apila las dos tablas una sobre otra */
     }
 
-    /* Menos alto en celular para dejar ver lo demás */
-    .contenedor-tabla {
-        max-height: 300px;
+    .lista-nombres {
+        max-height: 250px;
+        /* Acorta la lista en móvil para llegar rápido al contenido */
+    }
+
+    .header-sticky-alumno {
+        top: 10px;
+        /* Le da un pequeño margen en móviles al hacer scroll */
     }
 }
 </style>
