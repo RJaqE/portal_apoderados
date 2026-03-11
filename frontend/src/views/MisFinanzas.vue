@@ -1,24 +1,14 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import api from '../axios'
-import TarjetaAlumno from '../components/TarjetaAlumno.vue'
 
 const alumnos = ref([])
 const cargando = ref(true)
 const esStaff = ref(false)
 
-// Variables exclusivas para Staff
+// Variables de UI
 const busquedaAlumno = ref('')
 const alumnoSeleccionadoId = ref(null)
-
-// 👇 NUEVO: Variable para el Dashboard del Tesorero
-const resumen = ref({
-    banco_estimado: 0,
-    fondo_gira_estudio: 0,
-    saldo_flotante_apoderados: 0,
-    por_transferir_terceros: 0,
-    morosidad_pendiente: 0
-})
 
 onMounted(async () => {
     try {
@@ -26,18 +16,12 @@ onMounted(async () => {
         const resUser = await api.get('quien-soy/')
         esStaff.value = resUser.data.es_staff || resUser.data.es_admin
 
-        // 2. Si es Tesorero, cargamos el Dashboard Global
-        if (esStaff.value) {
-            const resDashboard = await api.get('resumen-tesoreria/')
-            resumen.value = resDashboard.data
-        }
-
-        // 3. Cargamos Alumnos (El backend ya sabe si mandar todos o solo los pupilos)
+        // 2. Cargamos Alumnos (El backend envía todos al Staff, o solo los pupilos al Apoderado)
         const resAlumnos = await api.get('mis-alumnos/')
         alumnos.value = resAlumnos.data
 
-        // 4. Seleccionamos el primero por defecto (Solo Staff)
-        if (esStaff.value && alumnos.value.length > 0) {
+        // 3. Seleccionamos el primer alumno por defecto automáticamente (para todos)
+        if (alumnos.value.length > 0) {
             setTimeout(() => {
                 if (alumnosOrdenados.value.length > 0) {
                     alumnoSeleccionadoId.value = alumnosOrdenados.value[0].id
@@ -45,13 +29,13 @@ onMounted(async () => {
             }, 100)
         }
     } catch (error) {
-        console.error("Error:", error)
+        console.error("Error cargando finanzas:", error)
     } finally {
         cargando.value = false
     }
 })
 
-// Lógica de Ordenamiento y Buscador (¡Intacta, está excelente!)
+// Ordenamiento y Buscador
 const alumnosOrdenados = computed(() => {
     let listaProcesada = alumnos.value.map(a => {
         const nombreLimpio = a.nombre_completo.trim()
@@ -68,8 +52,10 @@ const alumnosOrdenados = computed(() => {
         return { ...a, nombre_lista_frontend: nombreFormateado }
     })
 
+    // Ordenar alfabéticamente
     listaProcesada.sort((a, b) => a.nombre_lista_frontend.localeCompare(b.nombre_lista_frontend))
 
+    // Filtro de búsqueda (útil para el staff)
     if (busquedaAlumno.value) {
         const termino = busquedaAlumno.value.toLowerCase()
         listaProcesada = listaProcesada.filter(a =>
@@ -80,15 +66,30 @@ const alumnosOrdenados = computed(() => {
     return listaProcesada
 })
 
+// Alumno activo para llenar las columnas 2 y 3
+const alumnoActivo = computed(() => {
+    return alumnos.value.find(a => a.id === alumnoSeleccionadoId.value) || null
+})
+
+// Cálculos matemáticos de la vista
+const totalTransferencias = computed(() => {
+    if (!alumnoActivo.value || !alumnoActivo.value.abonos) return 0
+    return alumnoActivo.value.abonos.reduce((sum, abono) => sum + parseFloat(abono.monto || 0), 0)
+})
+
 const seleccionarAlumno = (id) => {
     alumnoSeleccionadoId.value = id
-    const el = document.getElementById('detalle-staff')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
 }
 
-// Utilidad para formatear dinero
 const formatearDinero = (monto) => {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(monto || 0)
+}
+
+const formatearFecha = (fechaString) => {
+    if (!fechaString) return '---'
+    const partes = fechaString.split('-') // Asume YYYY-MM-DD
+    if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`
+    return fechaString
 }
 </script>
 
@@ -96,95 +97,125 @@ const formatearDinero = (monto) => {
     <div class="contenedor-principal">
         <div v-if="cargando" class="loading">Cargando Bóveda... 🏦</div>
 
-        <div v-else>
-            <div v-if="!esStaff" class="vista-apoderado">
-                <h1 class="titulo-centro">🎓 Mis Finanzas</h1>
-                <div v-for="alumno in alumnos" :key="alumno.id" class="card-wrapper">
-                    <TarjetaAlumno :alumno="alumno" />
+        <div v-else class="contenido-finanzas">
+            <h1 class="titulo-pagina">🎓 Estado de Cuentas</h1>
+
+            <div class="tarjeta-banco">
+                <div class="header-banco">
+                    <h3>🏦 Datos para realizar transferencias</h3>
+                    <small>Recuerda enviar tu comprobante a la tesorería para que sea validado.</small>
+                </div>
+                <div class="datos-grid">
+                    <div><strong>Banco:</strong> BancoEstado</div>
+                    <div><strong>Tipo de Cuenta:</strong> Cuenta RUT</div>
+                    <div><strong>N° Cuenta:</strong> 12.345.678-9</div>
+                    <div><strong>Nombre:</strong> Tesorería Curso 8B</div>
+                    <div><strong>RUT:</strong> 12.345.678-9</div>
+                    <div><strong>Correo:</strong> tesoreria8b@colegio.cl</div>
                 </div>
             </div>
 
-            <div v-else>
-                <div class="header-finanzas">
-                    <h2>💰 Panel de Tesorería</h2>
-                    <p>Control de Billeteras Virtuales y Fondo de Viaje</p>
-                </div>
+            <div class="layout-3-columnas">
 
-                <div class="dashboard-grid">
-                    <div class="tarjeta-stat principal">
-                        <span class="icono">✈️</span>
-                        <div class="info">
-                            <small>Fondo Gira (Total)</small>
-                            <h3>{{ formatearDinero(resumen.fondo_gira_estudio) }}</h3>
-                        </div>
+                <aside class="columna columna-lista">
+                    <div class="encabezado-col">
+                        <h3>👥 {{ esStaff ? 'Curso (' + alumnosOrdenados.length + ')' : 'Mis Pupilos' }}</h3>
                     </div>
 
-                    <div class="tarjeta-stat secundaria">
-                        <span class="icono">💳</span>
-                        <div class="info">
-                            <small>En Banco (Estimado)</small>
-                            <h3>{{ formatearDinero(resumen.banco_estimado) }}</h3>
-                        </div>
+                    <div v-if="esStaff" class="buscador-wrapper">
+                        <input v-model="busquedaAlumno" type="text" placeholder="🔍 Buscar alumno..."
+                            class="input-busqueda" />
                     </div>
 
-                    <div class="tarjeta-stat flotante">
-                        <span class="icono">👛</span>
-                        <div class="info">
-                            <small>Billeteras (Saldos a Favor)</small>
-                            <h3>{{ formatearDinero(resumen.saldo_flotante_apoderados) }}</h3>
-                        </div>
+                    <ul class="lista-nombres">
+                        <li v-for="alumno in alumnosOrdenados" :key="alumno.id" @click="seleccionarAlumno(alumno.id)"
+                            :class="{ 'activo': alumnoSeleccionadoId === alumno.id }">
+                            <span class="avatar-letra">{{ alumno.nombre_completo.charAt(0) }}</span>
+                            <span class="nombre-lista">
+                                <span v-if="esStaff" style="color:#7f8c8d; font-size: 0.8em; margin-right: 5px;">{{
+                                    alumno.numero_lista }}.</span>
+                                {{ alumno.nombre_completo }}
+                            </span>
+                        </li>
+                    </ul>
+                </aside>
+
+                <section class="columna columna-datos">
+                    <div class="encabezado-col color-transferencias">
+                        <h3>💸 Transferencias Realizadas</h3>
                     </div>
 
-                    <div class="tarjeta-stat alerta">
-                        <span class="icono">📤</span>
-                        <div class="info">
-                            <small>Pagar a Terceros (Rifas)</small>
-                            <h3>{{ formatearDinero(resumen.por_transferir_terceros) }}</h3>
-                        </div>
+                    <div class="contenedor-tabla" v-if="alumnoActivo">
+                        <table class="tabla-compacta" v-if="alumnoActivo.abonos && alumnoActivo.abonos.length > 0">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Detalle</th>
+                                    <th style="text-align: right;">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="abono in alumnoActivo.abonos" :key="abono.id">
+                                    <td class="texto-menor">{{ formatearFecha(abono.fecha_transferencia) }}</td>
+                                    <td class="texto-menor">{{ abono.comprobante || 'Depósito' }}</td>
+                                    <td style="text-align: right; font-weight: bold; color: #27ae60;">
+                                        +{{ formatearDinero(abono.monto) }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p v-else class="hint-vacio">No hay transferencias registradas.</p>
                     </div>
-                </div>
 
-                <hr class="divisor" />
+                    <div class="pie-columna" v-if="alumnoActivo">
+                        <span>Total Transferido:</span>
+                        <strong style="color: #27ae60; font-size: 1.1em;">{{ formatearDinero(totalTransferencias)
+                            }}</strong>
+                    </div>
+                </section>
 
-                <div class="vista-staff-layout">
-                    <aside class="sidebar-nomina">
-                        <div class="nomina-header">
-                            <h3>📚 Nómina ({{ alumnosOrdenados.length }})</h3>
-                            <div class="buscador-wrapper">
-                                <input v-model="busquedaAlumno" type="text" placeholder="🔍 Buscar..."
-                                    class="input-nomina" />
-                                <button v-if="busquedaAlumno" @click="busquedaAlumno = ''"
-                                    class="btn-limpiar">✕</button>
-                            </div>
-                        </div>
-                        <ul class="lista-nombres">
-                            <li v-for="alumno in alumnosOrdenados" :key="alumno.id"
-                                @click="seleccionarAlumno(alumno.id)"
-                                :class="{ 'activo': alumnoSeleccionadoId === alumno.id }">
-                                <span class="avatar-letra">{{ alumno.nombre_completo.charAt(0) }}</span>
-                                <span class="nombre-lista">{{ alumno.nombre_completo }}</span>
-                                <span v-if="alumno.deuda_por_pagar > 0" class="dot-deuda" title="Tiene deudas"></span>
-                            </li>
-                        </ul>
-                    </aside>
+                <section class="columna columna-datos">
+                    <div class="encabezado-col color-cobros">
+                        <h3>📋 Cuotas y Cobros</h3>
+                    </div>
 
-                    <main class="contenido-detalle" id="detalle-staff">
-                        <div v-if="alumnoSeleccionadoId">
-                            <TarjetaAlumno :alumno="alumnos.find(a => a.id === alumnoSeleccionadoId)" />
-                        </div>
-                    </main>
-                </div>
+                    <div class="contenedor-tabla" v-if="alumnoActivo">
+                        <table class="tabla-compacta" v-if="alumnoActivo.cargos && alumnoActivo.cargos.length > 0">
+                            <thead>
+                                <tr>
+                                    <th>Concepto</th>
+                                    <th>Vence</th>
+                                    <th style="text-align: right;">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="cargo in alumnoActivo.cargos" :key="cargo.id">
+                                    <td>
+                                        <strong>{{ cargo.concepto_nombre }}</strong><br>
+                                        <span class="texto-menor">{{ formatearDinero(cargo.monto_total) }}</span>
+                                    </td>
+                                    <td class="texto-menor">{{ formatearFecha(cargo.fecha_vencimiento ||
+                                        cargo.concepto_fecha_vencimiento) }}</td>
+                                    <td style="text-align: right;">
+                                        <span class="badge-estado-mini" :class="cargo.estado">{{ cargo.estado }}</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p v-else class="hint-vacio">No hay deudas registradas.</p>
+                    </div>
+                </section>
+
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
-/* === ESTILOS ORIGINALES INTACTOS === */
 .contenedor-principal {
     font-family: 'Segoe UI', sans-serif;
     color: #333;
-    max-width: 1400px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
 }
@@ -196,71 +227,116 @@ const formatearDinero = (monto) => {
     color: #7f8c8d;
 }
 
-.titulo-centro {
+.titulo-pagina {
     text-align: center;
     color: #2c3e50;
-    margin-bottom: 30px;
+    margin-bottom: 25px;
+    font-size: 1.8rem;
 }
 
-.vista-apoderado {
-    max-width: 1000px;
-    margin: 0 auto;
+/* === TARJETA BANCO === */
+.tarjeta-banco {
+    background: #f8fbff;
+    border: 1px solid #cce5ff;
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
-.card-wrapper {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    margin-bottom: 40px;
-    border: 1px solid #eaeaea;
-    overflow: visible;
+.header-banco h3 {
+    margin: 0 0 5px 0;
+    color: #004085;
 }
 
-.vista-staff-layout {
+.header-banco small {
+    color: #666;
+    display: block;
+    margin-bottom: 10px;
+}
+
+.datos-grid {
     display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 30px;
-    height: calc(100vh - 250px);
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    font-size: 0.9em;
+    background: white;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px dashed #b8daff;
 }
 
-.sidebar-nomina {
+/* === LAYOUT 3 COLUMNAS === */
+.layout-3-columnas {
+    display: grid;
+    grid-template-columns: 260px 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.columna {
     background: white;
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid #eaeaea;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     height: 100%;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
-.nomina-header {
-    padding: 15px;
+.encabezado-col {
+    padding: 12px 15px;
     background: #f8f9fa;
     border-bottom: 1px solid #eee;
 }
 
-.nomina-header h3 {
-    margin: 0 0 10px 0;
-    font-size: 1rem;
+.encabezado-col h3 {
+    margin: 0;
+    font-size: 1.1em;
     color: #2c3e50;
+}
+
+.color-transferencias {
+    border-top: 4px solid #27ae60;
+}
+
+.color-cobros {
+    border-top: 4px solid #f39c12;
+}
+
+/* === COLUMNA 1: LISTA === */
+.buscador-wrapper {
+    padding: 10px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.input-busqueda {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 0.9em;
 }
 
 .lista-nombres {
     list-style: none;
     padding: 0;
     margin: 0;
+    max-height: 400px;
+    /* Evita que crezca infinito */
     overflow-y: auto;
-    flex-grow: 1;
 }
 
 .lista-nombres li {
-    padding: 12px 15px;
+    padding: 10px 15px;
     border-bottom: 1px solid #f9f9f9;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 10px;
+    transition: background 0.2s;
 }
 
 .lista-nombres li:hover {
@@ -275,8 +351,8 @@ const formatearDinero = (monto) => {
 .avatar-letra {
     background: #bdc3c7;
     color: white;
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     display: flex;
     justify-content: center;
@@ -290,158 +366,107 @@ const formatearDinero = (monto) => {
 }
 
 .nombre-lista {
-    font-size: 0.9rem;
+    font-size: 0.9em;
     color: #34495e;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.dot-deuda {
-    width: 8px;
-    height: 8px;
-    background: #e74c3c;
-    border-radius: 50%;
-    margin-left: auto;
-}
-
-.contenido-detalle {
-    background: white;
-    border-radius: 12px;
-    border: 1px solid #eaeaea;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+/* === COLUMNAS 2 Y 3: TABLAS COMPACTAS === */
+.contenedor-tabla {
+    flex-grow: 1;
+    max-height: 400px;
     overflow-y: auto;
-    scroll-margin-top: 90px;
-}
-
-.buscador-wrapper {
-    position: relative;
-    width: 100%;
-}
-
-.input-nomina {
-    width: 100%;
-    padding: 8px 30px 8px 10px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    box-sizing: border-box;
-}
-
-.btn-limpiar {
-    position: absolute;
-    right: 8px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: #95a5a6;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 0.9rem;
     padding: 0;
 }
 
-.btn-limpiar:hover {
-    color: #e74c3c;
+.tabla-compacta {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
 }
 
-/* === NUEVOS ESTILOS PARA EL DASHBOARD === */
-.header-finanzas {
-    margin-bottom: 20px;
-}
-
-.header-finanzas h2 {
-    margin: 0;
-    font-size: 1.8rem;
-    color: #2c3e50;
-}
-
-.header-finanzas p {
-    margin: 5px 0 0 0;
+.tabla-compacta th {
+    background: #fafafa;
     color: #7f8c8d;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    border-bottom: 2px solid #eee;
 }
 
-.divisor {
-    border: 0;
-    height: 1px;
-    background: #ecf0f1;
-    margin: 25px 0;
+.tabla-compacta td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f5f5f5;
+    vertical-align: middle;
 }
 
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 15px;
+.tabla-compacta tr:last-child td {
+    border-bottom: none;
 }
 
-.tarjeta-stat {
-    background: white;
-    padding: 15px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    border-left: 5px solid #bdc3c7;
-    border-right: 1px solid #eee;
-    border-top: 1px solid #eee;
-    border-bottom: 1px solid #eee;
+.tabla-compacta tr:hover {
+    background-color: #fafafa;
 }
 
-.tarjeta-stat.principal {
-    border-color: #3498db;
+.texto-menor {
+    font-size: 0.95em;
+    color: #555;
 }
 
-.tarjeta-stat.secundaria {
-    border-color: #2ecc71;
-}
-
-.tarjeta-stat.flotante {
-    border-color: #9b59b6;
-}
-
-.tarjeta-stat.alerta {
-    border-color: #f39c12;
-}
-
-.tarjeta-stat .icono {
-    font-size: 2rem;
-}
-
-.tarjeta-stat .info small {
-    display: block;
-    color: #7f8c8d;
+.badge-estado-mini {
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 0.75em;
     font-weight: bold;
-    font-size: 0.75rem;
-    text-transform: uppercase;
+    color: white;
 }
 
-.tarjeta-stat .info h3 {
-    margin: 5px 0 0 0;
-    color: #2c3e50;
-    font-size: 1.3rem;
+.badge-estado-mini.PENDIENTE {
+    background: #e74c3c;
 }
 
+.badge-estado-mini.PAGADO {
+    background: #2ecc71;
+}
+
+.hint-vacio {
+    text-align: center;
+    color: #95a5a6;
+    padding: 20px;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+.pie-columna {
+    background: #f8fbff;
+    border-top: 1px solid #eee;
+    padding: 12px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95em;
+}
+
+/* === RESPONSIVO === */
 @media (max-width: 900px) {
-    .vista-staff-layout {
-        display: flex;
-        flex-direction: column;
-        height: auto;
+    .layout-3-columnas {
+        grid-template-columns: 1fr;
+        /* Todo en una columna hacia abajo */
         gap: 15px;
     }
 
-    .sidebar-nomina {
-        height: auto;
-        max-height: 250px;
-        margin-bottom: 0;
-        border-bottom: 2px solid #3498db;
+    .lista-nombres {
+        max-height: 200px;
     }
 
-    .contenido-detalle {
-        overflow: visible !important;
-        height: auto !important;
-        min-height: 500px;
-        border: none;
-        box-shadow: none;
+    /* Menos alto en celular para dejar ver lo demás */
+    .contenedor-tabla {
+        max-height: 300px;
     }
 }
 </style>
