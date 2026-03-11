@@ -106,12 +106,12 @@ const formatearFecha = (fechaString) => {
                     <small>Recuerda enviar tu comprobante a la tesorería para que sea validado.</small>
                 </div>
                 <div class="datos-grid">
-                    <div><strong>Banco:</strong> BancoEstado</div>
-                    <div><strong>Tipo de Cuenta:</strong> Cuenta RUT</div>
-                    <div><strong>N° Cuenta:</strong> 12.345.678-9</div>
-                    <div><strong>Nombre:</strong> Tesorería Curso 8B</div>
-                    <div><strong>RUT:</strong> 12.345.678-9</div>
-                    <div><strong>Correo:</strong> tesoreria8b@colegio.cl</div>
+                    <div class="dato-item"><small>Banco</small><strong>BancoEstado</strong></div>
+                    <div class="dato-item"><small>Tipo de Cuenta</small><strong>Cuenta RUT</strong></div>
+                    <div class="dato-item"><small>N° Cuenta</small><strong>12.345.678-9</strong></div>
+                    <div class="dato-item"><small>Nombre</small><strong>Tesorería Curso 8B</strong></div>
+                    <div class="dato-item"><small>RUT</small><strong>12.345.678-9</strong></div>
+                    <div class="dato-item"><small>Correo</small><strong>tesoreria8b@colegio.cl</strong></div>
                 </div>
             </div>
 
