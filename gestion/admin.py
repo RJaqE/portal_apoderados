@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import (PerfilUsuario, Apoderado, Alumno, CuentaAlumno, ConceptoCobro, Cargo, Abono, MovimientoCuenta, Noticia, Evento)
+from .models import (PerfilUsuario, Apoderado, Alumno, CuentaAlumno, ConceptoCobro, 
+                     Cargo, Abono, MovimientoCuenta, Noticia, Evento, DepositoPlazo)
 
 @admin.register(PerfilUsuario)
 class PerfilUsuarioAdmin(admin.ModelAdmin):
@@ -48,3 +49,4 @@ class MovimientoCuentaAdmin(admin.ModelAdmin):
 
 admin.site.register(Noticia)
 admin.site.register(Evento)
+admin.site.register(DepositoPlazo)

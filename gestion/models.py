@@ -136,3 +136,13 @@ class Evento(models.Model):
 
     def __str__(self):
         return f"{self.titulo} - {self.fecha.strftime('%d/%m')}"
+    
+    # === 5. AHORRO DEL CURSO ===
+class DepositoPlazo(models.Model):
+    monto = models.IntegerField(default=0)
+    fecha_inicio = models.DateField()
+    fecha_fin = models.DateField()
+    alumnos_beneficiarios = models.ManyToManyField(Alumno, related_name='depositos', blank=True)
+
+    def __str__(self):
+        return f"Fondo Depósito a Plazo: ${self.monto}"

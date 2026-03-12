@@ -16,11 +16,12 @@ from rest_framework.views import APIView
 
 from .models import (
     Alumno, CuentaAlumno, Abono, ConceptoCobro, Cargo, MovimientoCuenta, 
-    Noticia, Evento, PerfilUsuario
+    Noticia, Evento, PerfilUsuario, DepositoPlazo
 )
 from .serializers import (
     AlumnoSerializer, AbonoSerializer, ConceptoSerializer, CargoSerializer, 
-    MovimientoCuentaSerializer, NoticiaSerializer, UserSerializer, EventoSerializer
+    MovimientoCuentaSerializer, NoticiaSerializer, UserSerializer, EventoSerializer,
+    DepositoPlazoSerializer
 )
 
 # ==============================================================================
@@ -352,3 +353,27 @@ def prorratear_monto(request):
         )
 
     return Response({"mensaje": f"¡Éxito! Se aplicaron ${monto_individual} a la cuenta de {cantidad} alumnos."})
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def gestionar_deposito(request):
+    # Buscamos el primer depósito (asumiendo que es un único fondo del curso)
+    deposito = DepositoPlazo.objects.first()
+    
+    if request.method == 'GET':
+        if not deposito:
+            return Response({}) # Retorna vacío si aún no se ha creado
+        serializer = DepositoPlazoSerializer(deposito)
+        return Response(serializer.data)
+        
+    elif request.method == 'POST':
+        # Si ya existe, lo actualizamos. Si no, lo creamos desde cero.
+        if deposito:
+            serializer = DepositoPlazoSerializer(deposito, data=request.data)
+        else:
+            serializer = DepositoPlazoSerializer(data=request.data)
+            
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)

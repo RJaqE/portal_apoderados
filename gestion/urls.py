@@ -13,6 +13,7 @@ from .views import (
     EventoViewSet,     
     MovimientoCuentaViewSet, 
     prorratear_monto,  # <--- NUEVO IMPORT (La función mágica de división de dinero)
+    gestionar_deposito, # <--- NUEVO IMPORT: Para el depósito a plazo
     
     # === NUEVAS VISTAS DE SEGURIDAD ===
     SolicitarEnlaceSeguridad,
@@ -44,6 +45,8 @@ urlpatterns = [
     # === RUTAS PARA TESORERÍA ===
     path('resumen-tesoreria/', resumen_tesoreria, name='resumen_tesoreria'),
     path('prorrateo/', prorratear_monto, name='prorrateo'), # <--- NUEVA RUTA CONECTADA AL FRONTEND
+    path('deposito/', gestionar_deposito, name='gestionar_deposito'), # <--- NUEVA RUTA DEPÓSITO A PLAZO
+    
 
     # === RUTAS DE SEGURIDAD (RECUPERACIÓN Y CAMBIO DE CLAVES) ===
     path('seguridad/solicitar-enlace/', SolicitarEnlaceSeguridad.as_view(), name='solicitar-enlace'),
