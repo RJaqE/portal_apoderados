@@ -35,37 +35,52 @@ const nuevoProrrateo = ref({
     descripcion: ''
 })
 
-// === 4. DEPÓSITO A PLAZO (AHORRO GLOBAL DEL CURSO) - ¡CORREGIDO! ===
+// === 4. DEPÓSITO A PLAZO (CONECTADO A LA BD) ===
 const editandoDeposito = ref(false)
 const deposito = ref({
-    monto: 4000000,
-    fecha_inicio: new Date().toISOString().split('T')[0],
-    fecha_fin: '2026-06-30',
-    alumnos_ids: [] // 👈 AQUÍ SE GUARDA LA "FOTO" CONGELADA DE LOS ALUMNOS
+    monto: 0,
+    fecha_inicio: '',
+    fecha_fin: '',
+    alumnos_beneficiarios: [] // Coincide con el nombre en el backend
 })
 
-// Calculadora automática: Usa los checkboxes en vivo SOLO si estamos editando. 
-// Si no, usa la foto congelada (deposito.alumnos_ids).
+// Calculadora automática
 const cuotaAhorro = computed(() => {
-    const idsActivos = editandoDeposito.value ? alumnosSeleccionados.value : deposito.value.alumnos_ids;
+    const idsActivos = editandoDeposito.value ? alumnosSeleccionados.value : (deposito.value.alumnos_beneficiarios || []);
     if (idsActivos.length === 0 || !deposito.value.monto) return 0;
     return Math.floor(deposito.value.monto / idsActivos.length);
 })
 
-// Lista visual de los alumnos beneficiarios, responde al mismo congelador.
+// Lista visual de los alumnos beneficiarios
 const listaAlumnosAhorro = computed(() => {
-    const idsActivos = editandoDeposito.value ? alumnosSeleccionados.value : deposito.value.alumnos_ids;
+    const idsActivos = editandoDeposito.value ? alumnosSeleccionados.value : (deposito.value.alumnos_beneficiarios || []);
     return alumnos.value.filter(a => idsActivos.includes(a.id));
 })
 
-const guardarDeposito = () => {
-    if (!deposito.value.monto || deposito.value.monto <= 0) return alert("Ingresa un monto válido");
-    if (alumnosSeleccionados.value.length === 0) return alert("Selecciona al menos un alumno en la lista de abajo para este depósito.");
+const guardarDeposito = async () => {
+    if (!deposito.value.monto || deposito.value.monto <= 0) return alert("Ingresa un monto válido.");
+    if (!deposito.value.fecha_inicio || !deposito.value.fecha_fin) return alert("Faltan las fechas.");
+    if (alumnosSeleccionados.value.length === 0) return alert("Selecciona alumnos en la lista de abajo.");
 
-    // 📸 CLICK! Tomamos la foto de los seleccionados y la guardamos en la memoria del depósito
-    deposito.value.alumnos_ids = [...alumnosSeleccionados.value];
-    editandoDeposito.value = false;
-    alert("🏦 Depósito actualizado. Los valores y los alumnos beneficiarios han quedado congelados.");
+    try {
+        const payload = {
+            monto: deposito.value.monto,
+            fecha_inicio: deposito.value.fecha_inicio,
+            fecha_fin: deposito.value.fecha_fin,
+            alumnos_beneficiarios: alumnosSeleccionados.value
+        };
+
+        // Enviamos los datos a la nueva ruta en Django
+        const res = await api.post('deposito/', payload);
+
+        // Actualizamos la vista con lo que guardó la BD
+        deposito.value = res.data;
+        editandoDeposito.value = false;
+        alert("🏦 ¡Depósito a Plazo guardado en la Base de Datos!");
+    } catch (error) {
+        console.error(error);
+        alert("Error al guardar el depósito. Revisa los datos.");
+    }
 }
 
 // === 5. INGRESO RÁPIDO DE ABONOS ===
@@ -81,11 +96,22 @@ const cargarDatosGlobales = async () => {
         alumnos.value = resAlumnos.data
         alumnosSeleccionados.value = alumnos.value.map(a => a.id)
 
-        // Al iniciar la app por primera vez, el depósito asume que es para todo el curso actual
-        deposito.value.alumnos_ids = [...alumnosSeleccionados.value]
-
         const resConceptos = await api.get('conceptos/')
         conceptos.value = resConceptos.data
+
+        // 👇 NUEVO: Traer el depósito de la base de datos
+        const resDeposito = await api.get('deposito/')
+        if (resDeposito.data && Object.keys(resDeposito.data).length > 0) {
+            deposito.value = resDeposito.data;
+        } else {
+            // Si no hay depósito creado en la BD, lo dejamos en blanco
+            deposito.value = {
+                monto: 0,
+                fecha_inicio: new Date().toISOString().split('T')[0],
+                fecha_fin: '',
+                alumnos_beneficiarios: []
+            }
+        }
     } catch (error) { console.error("Error cargando datos:", error) }
 }
 
@@ -351,11 +377,18 @@ const procesarPagoConBilletera = async () => {
                 </div>
 
                 <div v-if="!editandoDeposito" class="info-deposito" style="text-align: center; margin-top: 15px;">
-                    <h2 style="color: #2980b9; font-size: 2.2em; margin: 0;">{{ formatearDinero(deposito.monto) }}</h2>
-                    <p style="color: #7f8c8d; font-size: 0.9em; margin-top: 5px;">
-                        📅 Desde: <strong>{{ deposito.fecha_inicio }}</strong><br>
-                        ⏳ Vence: <strong>{{ deposito.fecha_fin }}</strong>
-                    </p>
+                    <div v-if="deposito.monto > 0">
+                        <h2 style="color: #2980b9; font-size: 2.2em; margin: 0;">{{ formatearDinero(deposito.monto) }}
+                        </h2>
+                        <p style="color: #7f8c8d; font-size: 0.9em; margin-top: 5px;">
+                            📅 Desde: <strong>{{ deposito.fecha_inicio }}</strong><br>
+                            ⏳ Vence: <strong>{{ deposito.fecha_fin }}</strong>
+                        </p>
+                    </div>
+                    <div v-else class="esperando" style="padding: 15px; margin-top:0;">
+                        <p>No hay depósito a plazo registrado.</p>
+                        <small>Haz clic en "Editar" para crearlo.</small>
+                    </div>
                 </div>
 
                 <div v-else class="form-crear-cobro" style="border-color: #3498db;">
@@ -385,9 +418,11 @@ const procesarPagoConBilletera = async () => {
                         <span style="font-weight: bold; color: #2c3e50;">Saldo por alumno:</span>
                         <strong style="color: #27ae60; font-size: 1.3em;">{{ formatearDinero(cuotaAhorro) }}</strong>
                     </div>
+
                     <p style="font-size: 0.8em; color: #555; text-align: center; margin-top: 10px;">
                         Prorrateado entre <strong>{{ editandoDeposito ? alumnosSeleccionados.length :
-                            deposito.alumnos_ids.length }}</strong> alumnos beneficiarios:
+                            (deposito.alumnos_beneficiarios ? deposito.alumnos_beneficiarios.length : 0) }}</strong>
+                        alumnos beneficiarios:
                     </p>
 
                     <div class="lista-nombres-ahorro">
@@ -413,7 +448,7 @@ const procesarPagoConBilletera = async () => {
                 </div>
                 <div class="toggle-lista" @click="mostrandoListaAlumnos = !mostrandoListaAlumnos">
                     <span>{{ mostrandoListaAlumnos ? '🔽 Ocultar lista individual' : '▶️ Ver/Editar lista individual'
-                        }}</span>
+                    }}</span>
                     <small>({{ alumnosSeleccionados.length }} de {{ alumnos.length }} alumnos seleccionados)</small>
                 </div>
                 <div v-show="mostrandoListaAlumnos" class="lista-alumnos-check">
@@ -475,7 +510,7 @@ const procesarPagoConBilletera = async () => {
                         </div>
                         <div class="flex-row align-center" style="margin-top: 5px;">
                             <small>Ref: {{ abono.comprobante || '---' }} <br> Estado: <span :class="abono.estado">{{
-                                    abono.estado }}</span></small>
+                                abono.estado }}</span></small>
                             <button @click.stop="eliminarAbono(abono.id)" class="btn-eliminar-abono"
                                 title="Borrar Ingreso">🗑️</button>
                         </div>
