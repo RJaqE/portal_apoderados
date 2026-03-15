@@ -152,6 +152,28 @@ const cargarHistorial = async () => {
     } catch (e) { console.error("Error cargando historial", e) }
 }
 
+// === 6. REGISTRO DE EGRESOS REALES (BANCO) ===
+const mostrandoFormGasto = ref(false)
+const nuevoGasto = ref({
+    monto: '', descripcion: '', fecha_gasto: new Date().toISOString().split('T')[0], comprobante: ''
+})
+
+const registrarGasto = async () => {
+    if (!nuevoGasto.value.monto || nuevoGasto.value.monto <= 0) return alert("Monto inválido")
+    if (!nuevoGasto.value.descripcion) return alert("Falta descripción")
+
+    try {
+        await api.post('egresos/', nuevoGasto.value)
+        alert("¡Gasto registrado en el libro contable! 📉")
+        nuevoGasto.value = { monto: '', descripcion: '', fecha_gasto: new Date().toISOString().split('T')[0], comprobante: '' }
+        mostrandoFormGasto.value = false
+        // Opcional: Si quieres ver el historial de gastos aquí mismo, podrías cargarlo, 
+        // pero por ahora con guardarlo basta, se verá en el Resumen.
+    } catch (e) {
+        alert("Error al registrar gasto")
+    }
+}
+
 // === FUNCIONES DE COBROS MASIVOS ===
 const crearConceptoCobro = async () => {
     if (!nuevoConcepto.value.nombre || !nuevoConcepto.value.monto_estandar) return alert("Faltan datos.")
@@ -368,6 +390,44 @@ const procesarPagoConBilletera = async () => {
                 </div>
             </div>
 
+            <div class="panel-masivo" style="background-color: #ffebee; border-color: #ffcdd2;">
+                <div class="header-masivo">
+                    <h3 style="color: #c62828;">🔴 Registrar Salida de Dinero (Banco)</h3>
+                    <button @click="mostrandoFormGasto = !mostrandoFormGasto" class="btn-toggle-cobro"
+                        style="border-color:#c62828; color:#c62828;">
+                        {{ mostrandoFormGasto ? '❌ Cerrar' : '📤 Registrar Gasto' }}
+                    </button>
+                </div>
+
+                <div v-if="mostrandoFormGasto" class="form-crear-cobro" style="border-color: #e53935;">
+                    <p style="font-size: 0.85em; color: #c62828; margin-top:0;">* Utiliza esto cuando saques dinero del
+                        banco real para pagar a proveedores, rifas, etc.</p>
+                    <div class="grupo-inputs-cobro">
+                        <div class="campo">
+                            <label>Monto ($):</label>
+                            <input type="number" v-model="nuevoGasto.monto" placeholder="Ej: 50000" />
+                        </div>
+                        <div class="campo">
+                            <label>Motivo / Descripción:</label>
+                            <input type="text" v-model="nuevoGasto.descripcion" placeholder="Ej: Pago arriendo bus" />
+                        </div>
+                        <div class="campo">
+                            <label>Fecha de Pago:</label>
+                            <input type="date" v-model="nuevoGasto.fecha_gasto" />
+                        </div>
+                        <div class="campo">
+                            <label>Comprobante/Ref:</label>
+                            <input type="text" v-model="nuevoGasto.comprobante"
+                                placeholder="N° Boleta / Transferencia" />
+                        </div>
+                    </div>
+                    <button @click="registrarGasto" class="btn-guardar-cobro"
+                        style="background-color: #e53935; margin-top: 15px; width: 100%;">
+                        Registrar Egreso Definitivo
+                    </button>
+                </div>
+            </div>
+
             <div class="panel-masivo panel-deposito">
                 <div class="header-masivo">
                     <h3>🏦 Depósito a Plazo</h3>
@@ -448,7 +508,7 @@ const procesarPagoConBilletera = async () => {
                 </div>
                 <div class="toggle-lista" @click="mostrandoListaAlumnos = !mostrandoListaAlumnos">
                     <span>{{ mostrandoListaAlumnos ? '🔽 Ocultar lista individual' : '▶️ Ver/Editar lista individual'
-                    }}</span>
+                        }}</span>
                     <small>({{ alumnosSeleccionados.length }} de {{ alumnos.length }} alumnos seleccionados)</small>
                 </div>
                 <div v-show="mostrandoListaAlumnos" class="lista-alumnos-check">
