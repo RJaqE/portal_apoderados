@@ -23,7 +23,7 @@ const conceptoSeleccionado = ref(null)
 const procesandoMasivo = ref(false)
 const mostrandoFormCobro = ref(false)
 const nuevoConcepto = ref({
-    nombre: '', monto_estandar: '', fecha_vencimiento: new Date().toISOString().split('T')[0], destino: 'VIAJE'
+    nombre: '', monto_estandar: '', fecha_vencimiento: new Date().toISOString().split('T')[0], destino: 'CUENTA'
 })
 
 // === 3. GESTIÓN DE PRORRATEO (Repartir Dinero Billetera) ===
@@ -182,7 +182,7 @@ const crearConceptoCobro = async () => {
         conceptos.value.push(res.data)
         conceptoSeleccionado.value = res.data.id
         alert("¡Cobro creado exitosamente en la base de datos! ✅")
-        nuevoConcepto.value = { nombre: '', monto_estandar: '', fecha_vencimiento: new Date().toISOString().split('T')[0], destino: 'VIAJE' }
+        nuevoConcepto.value = { nombre: '', monto_estandar: '', fecha_vencimiento: new Date().toISOString().split('T')[0], destino: 'CUENTA' }
         mostrandoFormCobro.value = false
     } catch (error) { alert("Error al crear el cobro.") }
 }
@@ -326,8 +326,8 @@ const procesarPagoConBilletera = async () => {
                         <div class="campo">
                             <label>Destino de la plata:</label>
                             <select v-model="nuevoConcepto.destino">
-                                <option value="VIAJE">Ahorro Fondo de Viaje</option>
-                                <option value="EXTERNO">Pago a Terceros (Rifa, Alianza)</option>
+                                <option value="CUENTA">Fondo del Curso (Cuotas, Salidas, Regalos)</option>
+                                <option value="EXTERNO">Aportes Extra / Voluntarios (Rifas, Solidario)</option>
                             </select>
                         </div>
                     </div>
