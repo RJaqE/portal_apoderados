@@ -16,12 +16,12 @@ from rest_framework.views import APIView
 
 from .models import (
     Alumno, CuentaAlumno, Abono, ConceptoCobro, Cargo, MovimientoCuenta, 
-    Noticia, Evento, PerfilUsuario, DepositoPlazo
+    Noticia, Evento, PerfilUsuario, DepositoPlazo, EgresoTesoreria
 )
 from .serializers import (
     AlumnoSerializer, AbonoSerializer, ConceptoSerializer, CargoSerializer, 
     MovimientoCuentaSerializer, NoticiaSerializer, UserSerializer, EventoSerializer,
-    DepositoPlazoSerializer
+    DepositoPlazoSerializer, EgresoTesoreriaSerializer
 )
 
 # ==============================================================================
@@ -255,6 +255,11 @@ class CargoViewSet(viewsets.ModelViewSet):
         )
         
         return Response({"mensaje": "Pago reversado. Dinero devuelto a la billetera."})
+
+class EgresoTesoreriaViewSet(viewsets.ModelViewSet):
+    queryset = EgresoTesoreria.objects.all()
+    serializer_class = EgresoTesoreriaSerializer
+    permission_classes = [IsAuthenticated]
 
 class NoticiaViewSet(viewsets.ModelViewSet):
     queryset = Noticia.objects.all().order_by('-es_importante', '-fecha_creacion')

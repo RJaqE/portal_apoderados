@@ -14,6 +14,7 @@ from .views import (
     MovimientoCuentaViewSet, 
     prorratear_monto,  # <--- NUEVO IMPORT (La función mágica de división de dinero)
     gestionar_deposito, # <--- NUEVO IMPORT: Para el depósito a plazo
+    EgresoTesoreriaViewSet, # <--- NUEVO IMPORT: Para registrar gastos de tesorería
     
     # === NUEVAS VISTAS DE SEGURIDAD ===
     SolicitarEnlaceSeguridad,
@@ -33,6 +34,8 @@ router.register(r'noticias', NoticiaViewSet)
 router.register(r'eventos', EventoViewSet) 
 # === NUEVA RUTA DE MOVIMIENTOS DE CUENTA (Cartola Histórica) ===
 router.register(r'movimientos', MovimientoCuentaViewSet, basename='movimiento') 
+# === NUEVA RUTA DE EGRESOS DE TESORERÍA ===
+router.register(r'egresos', EgresoTesoreriaViewSet, basename='egreso')
 
 urlpatterns = [
     # Rutas automáticas del router (ViewSets)

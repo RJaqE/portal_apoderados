@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
+
 # === 1. SEGURIDAD Y PERFILES ===
 class PerfilUsuario(models.Model):
     usuario = models.OneToOneField(User, on_delete=models.CASCADE, related_name='perfil')
@@ -16,6 +17,7 @@ class PerfilUsuario(models.Model):
 def crear_perfil_usuario(sender, instance, created, **kwargs):
     if created:
         PerfilUsuario.objects.create(usuario=instance)
+
 
 # === 2. ACTORES PRINCIPALES ===
 class Apoderado(models.Model):
@@ -38,6 +40,7 @@ class Alumno(models.Model):
     def __str__(self):
         return f"{self.numero_lista}. {self.nombre_completo}"
 
+
 # === 3. TESORERÍA Y FINANZAS ===
 class CuentaAlumno(models.Model):
     alumno = models.OneToOneField(Alumno, on_delete=models.CASCADE, related_name='cuenta')
@@ -59,13 +62,13 @@ class CuentaAlumno(models.Model):
 
 class ConceptoCobro(models.Model):
     TIPO_DESTINO = [
-        ('VIAJE', 'Fondo Gira de Estudio (Ahorro)'),
-        ('EXTERNO', 'Recaudación Externa (Centro Padres, Alianza, etc.)')
+        ('CUENTA', 'Fondo del Curso (Cuotas, Salidas, Regalos)'),
+        ('EXTERNO', 'Aportes Extra o Voluntarios (Rifas, Solidario, Otros)')
     ]
     nombre = models.CharField(max_length=100)
     monto_estandar = models.IntegerField()
     fecha_vencimiento = models.DateField()
-    destino = models.CharField(max_length=20, choices=TIPO_DESTINO, default='VIAJE')
+    destino = models.CharField(max_length=20, choices=TIPO_DESTINO, default='CUENTA')
 
     def __str__(self):
         return f"{self.nombre} (${self.monto_estandar}) - Va a: {self.destino}"
@@ -110,6 +113,7 @@ class MovimientoCuenta(models.Model):
     def __str__(self):
         return f"{self.tipo} ${self.monto} - {self.cuenta.alumno.nombre_completo}"
 
+
 # === 4. COMUNICACIÓN Y EVENTOS ===
 class Noticia(models.Model):
     ETIQUETAS = [('GENERAL', 'General 📢'), ('FINANZAS', 'Finanzas 💰'), ('ACADEMICO', 'Académico 🎓'), ('URGENTE', 'Urgente 🚨'), ('SOCIAL', 'Social 🎉')]
@@ -136,8 +140,9 @@ class Evento(models.Model):
 
     def __str__(self):
         return f"{self.titulo} - {self.fecha.strftime('%d/%m')}"
-    
-    # === 5. AHORRO DEL CURSO ===
+
+
+# === 5. AHORRO DEL CURSO ===
 class DepositoPlazo(models.Model):
     monto = models.IntegerField(default=0)
     fecha_inicio = models.DateField()
@@ -146,3 +151,18 @@ class DepositoPlazo(models.Model):
 
     def __str__(self):
         return f"Fondo Depósito a Plazo: ${self.monto}"
+
+
+# === 6. LIBRO DE GASTOS GLOBALES (EGRESOS) ===
+class EgresoTesoreria(models.Model):
+    monto = models.IntegerField()
+    descripcion = models.CharField(max_length=200)
+    fecha_gasto = models.DateField()
+    comprobante = models.CharField(max_length=100, blank=True, null=True)
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-fecha_gasto', '-fecha_registro']
+
+    def __str__(self):
+        return f"Gasto: ${self.monto} - {self.descripcion}"

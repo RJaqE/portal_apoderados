@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import (Alumno, CuentaAlumno, MovimientoCuenta, Cargo, Abono, ConceptoCobro, Noticia, Evento, DepositoPlazo)
+from .models import (Alumno, CuentaAlumno, MovimientoCuenta, Cargo, Abono, ConceptoCobro, Noticia, Evento, DepositoPlazo, EgresoTesoreria)
 
 class UserSerializer(serializers.ModelSerializer):
     nombre_completo = serializers.SerializerMethodField()
@@ -105,4 +105,9 @@ class EventoSerializer(serializers.ModelSerializer):
 class DepositoPlazoSerializer(serializers.ModelSerializer):
     class Meta:
         model = DepositoPlazo
+        fields = '__all__'
+
+class EgresoTesoreriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EgresoTesoreria
         fields = '__all__'
