@@ -3,6 +3,7 @@ from django.db.models import Sum
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from cloudinary_storage.storage import RawMediaCloudinaryStorage
 
 
 # === 1. SEGURIDAD Y PERFILES ===
@@ -132,8 +133,13 @@ class Noticia(models.Model):
     # Mantenemos la imagen antigua por si hay noticias viejas, pero ya no la usaremos como principal.
     imagen = models.ImageField(upload_to='noticias/', null=True, blank=True)
     
-    # 👇 NUEVO: Archivo adjunto (PDF, Word, etc)
-    archivo = models.FileField(upload_to='noticias/archivos/', null=True, blank=True)
+    # 👇 AQUÍ ESTÁ LA MAGIA: Le decimos a Cloudinary que esto es un archivo, no una foto
+    archivo = models.FileField(
+        upload_to='noticias/archivos/', 
+        null=True, 
+        blank=True, 
+        storage=RawMediaCloudinaryStorage()
+    )
     
     es_importante = models.BooleanField(default=False)
     etiqueta = models.CharField(max_length=20, choices=ETIQUETAS, default='GENERAL')

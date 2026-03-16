@@ -213,3 +213,15 @@ EMAIL_USE_TLS = True
 # Django leerá el correo y la clave segura desde las variables de entorno (.env o Railway)
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+
+
+# ==============================================================================
+# 10. CLOUDINARY (PARCHE PARA MIGRACIONES LOCALES)
+# ==============================================================================
+# "Engaño" para que makemigrations funcione localmente sin pedir las claves reales de Cloudinary
+if not os.environ.get('CLOUDINARY_URL'):
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': 'local_dummy',
+        'API_KEY': 'local_dummy',
+        'API_SECRET': 'local_dummy',
+    }
