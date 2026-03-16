@@ -141,7 +141,7 @@ const cargarDatosGlobales = async () => {
     try {
         const resAlumnos = await api.get('mis-alumnos/')
         alumnos.value = resAlumnos.data
-        alumnosSeleccionados.value = alumnos.value.map(a => a.id)
+        alumnosSeleccionados.value = []
 
         const resConceptos = await api.get('conceptos/')
         conceptos.value = resConceptos.data
