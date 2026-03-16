@@ -6,6 +6,7 @@ import api from '../axios'
 const alumnos = ref([])
 const conceptos = ref([])
 const egresos = ref([])
+const movimientosRaw = ref([]) // <--- NUEVO: Para agrupar prorrateos
 const deposito = ref({ monto: 0 })
 const cargando = ref(true)
 
@@ -13,15 +14,18 @@ const cargando = ref(true)
 const cargarTodo = async () => {
     cargando.value = true
     try {
-        const [resAlumnos, resConceptos, resEgresos, resDeposito] = await Promise.all([
+        const [resAlumnos, resConceptos, resEgresos, resDeposito, resMovimientos] = await Promise.all([
             api.get('mis-alumnos/'),
             api.get('conceptos/'),
             api.get('egresos/'),
-            api.get('deposito/')
+            api.get('deposito/'),
+            api.get('movimientos/') // <--- NUEVO
         ])
         alumnos.value = resAlumnos.data
         conceptos.value = resConceptos.data
         egresos.value = resEgresos.data
+        movimientosRaw.value = resMovimientos.data.results || resMovimientos.data
+
         if (resDeposito.data && resDeposito.data.monto) {
             deposito.value = resDeposito.data
         }
@@ -66,6 +70,39 @@ const totalRecaudadoExterno = computed(() => {
 
 const totalEgresos = computed(() => {
     return egresos.value.reduce((sum, e) => sum + e.monto, 0)
+})
+
+// 👇 LA MAGIA: RECONSTRUIR PRORRATEOS GLOBALES
+const historialProrrateos = computed(() => {
+    const grupos = {}
+
+    movimientosRaw.value.forEach(mov => {
+        // Ignoramos movimientos sin fecha o descripción
+        if (!mov.fecha || !mov.descripcion) return
+
+        const fechaCorta = mov.fecha.split('T')[0]
+        // Creamos una "llave" única basada en Fecha + Descripción + Tipo
+        const key = `${fechaCorta}_${mov.descripcion}_${mov.tipo}`
+
+        if (!grupos[key]) {
+            grupos[key] = {
+                id: key,
+                fecha: fechaCorta,
+                descripcion: mov.descripcion,
+                tipo: mov.tipo,
+                monto_total: 0,
+                alumnos_count: 0
+            }
+        }
+        grupos[key].monto_total += parseFloat(mov.monto)
+        grupos[key].alumnos_count += 1
+    })
+
+    // Convertimos a array, filtramos solo los que afectaron a > 1 alumno (Prorrateos reales) 
+    // y ordenamos por fecha descendente
+    return Object.values(grupos)
+        .filter(g => g.alumnos_count > 1)
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
 })
 
 const granTotalIngresos = computed(() => totalRecaudadoCuenta.value + totalRecaudadoExterno.value + totalFlotante.value)
@@ -172,9 +209,34 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
 
             <div class="columna-derecha-grid">
 
+                <div class="columna prorrateos">
+                    <div class="header-seccion gris">
+                        <h2>🔄 PRORRATEOS Y FONDOS COMPARTIDOS</h2>
+                    </div>
+                    <div class="info-prorrateo-banner">
+                        <small>Estos movimientos ya están sumados/restados en las Billeteras.</small>
+                    </div>
+
+                    <div class="lista-gastos">
+                        <div v-for="pro in historialProrrateos" :key="pro.id" class="item-gasto">
+                            <div class="gasto-info">
+                                <strong>{{ pro.descripcion }}</strong>
+                                <small>📅 {{ pro.fecha }} | 👥 Dividido en {{ pro.alumnos_count }} alumnos</small>
+                            </div>
+                            <strong :class="pro.tipo === 'INGRESO' ? 'texto-verde' : 'texto-rojo'">
+                                {{ pro.tipo === 'INGRESO' ? '+' : '-' }}{{ formatearDinero(pro.monto_total) }}
+                            </strong>
+                        </div>
+                        <div v-if="historialProrrateos.length === 0" class="hint"
+                            style="text-align:center; padding: 20px;">
+                            No se han realizado repartos de dinero masivos.
+                        </div>
+                    </div>
+                </div>
+
                 <div class="columna egresos">
                     <div class="header-seccion rojo">
-                        <h2>🔴 LIBRO DE EGRESOS</h2>
+                        <h2>🔴 GASTOS DIRECTOS (SIN PRORRATEO)</h2>
                         <h3>-{{ formatearDinero(totalEgresos) }}</h3>
                     </div>
 
@@ -187,7 +249,7 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
                             <strong class="texto-rojo">-{{ formatearDinero(gasto.monto) }}</strong>
                         </div>
                         <div v-if="egresos.length === 0" class="hint" style="text-align:center; padding: 20px;">
-                            No se han registrado salidas de dinero.
+                            No se han registrado salidas de dinero directas.
                         </div>
                     </div>
                 </div>
@@ -203,7 +265,7 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
                             <span>{{ formatearDinero(granTotalIngresos) }}</span>
                         </div>
                         <div class="linea-math">
-                            <span>Egresos Totales</span>
+                            <span>Gastos Directos</span>
                             <span class="texto-rojo">-{{ formatearDinero(totalEgresos) }}</span>
                         </div>
                         <hr class="linea-suma" />
@@ -225,12 +287,12 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
                 </div>
 
             </div>
-
         </div>
     </div>
 </template>
 
 <style scoped>
+/* TODO ESTILO SE MANTIENE EXACTAMENTE IGUAL, SOLO AGREGAMOS EL BANNER GRIS */
 .dashboard-contenedor {
     max-width: 1400px;
     margin: 0 auto;
@@ -287,7 +349,6 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
     gap: 30px;
 }
 
-/* ENCABEZADOS DE SECCIÓN */
 .header-seccion {
     padding: 20px;
     display: flex;
@@ -320,7 +381,21 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
     justify-content: center;
 }
 
-/* ACORDEONES EXCEL */
+.gris {
+    background: linear-gradient(135deg, #7f8c8d, #95a5a6);
+    justify-content: center;
+}
+
+/* NUEVO */
+.info-prorrateo-banner {
+    background: #fdfdfd;
+    padding: 10px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+    color: #7f8c8d;
+}
+
+/* NUEVO */
 .categoria-bloque {
     padding: 15px 20px;
     border-bottom: 2px dashed #f0f0f0;
@@ -361,7 +436,6 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
     background: #e3f2fd;
 }
 
-/* TABLA INTERNA EXCEL */
 .detalle-excel {
     border-top: 1px solid #eee;
     background: white;
@@ -396,7 +470,6 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
     color: #2980b9;
 }
 
-/* GASTOS */
 .lista-gastos {
     max-height: 400px;
     overflow-y: auto;
@@ -426,7 +499,6 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
     margin-top: 3px;
 }
 
-/* MATEMÁTICA FINAL */
 .resumen-final {
     background: #f8fbff;
     border: 2px solid #b8daff;
