@@ -1,164 +1,253 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import api from '../axios'
 
-const deudas = ref([])
-const abonos = ref([])
-const saldoBilletera = ref(0) // <--- NUEVO ESTADO
+const alumnos = ref([])
 const cargando = ref(true)
-const datosBancarios = ref({})
+const esStaff = ref(false)
 
-const cargarDatosFinancieros = async () => {
-    cargando.value = true
+// Variables de UI
+const busquedaAlumno = ref('')
+const alumnoSeleccionadoId = ref(null)
+
+onMounted(async () => {
     try {
-        const resAlumnos = await api.get('mis-alumnos/')
-        if (resAlumnos.data && resAlumnos.data.length > 0) {
-            const miAlumno = resAlumnos.data[0]
-            deudas.value = miAlumno.cargos || []
-            abonos.value = miAlumno.abonos || []
-            // 👇 NUEVO: Sacar el saldo disponible de la cuenta asociada
-            saldoBilletera.value = miAlumno.cuenta?.saldo_disponible || 0
-        }
+        // 1. Verificamos Rol
+        const resUser = await api.get('quien-soy/')
+        esStaff.value = resUser.data.es_staff || resUser.data.es_admin
 
-        // Cargar datos bancarios para la transferencia
-        const resSettings = await api.get('settings/') // Asumiendo que tenemos una API para esto
-        datosBancarios.value = resSettings.data
+        // 2. Cargamos Alumnos
+        const resAlumnos = await api.get('mis-alumnos/')
+        alumnos.value = resAlumnos.data
+
+        // 3. Seleccionamos el primer alumno por defecto
+        if (alumnos.value.length > 0) {
+            setTimeout(() => {
+                if (alumnosOrdenados.value.length > 0) {
+                    alumnoSeleccionadoId.value = alumnosOrdenados.value[0].id
+                }
+            }, 100)
+        }
     } catch (error) {
-        console.error("Error cargando finanzas", error)
+        console.error("Error cargando finanzas:", error)
     } finally {
         cargando.value = false
     }
+})
+
+// Ordenamiento y Buscador
+const alumnosOrdenados = computed(() => {
+    let listaProcesada = alumnos.value.map(a => {
+        const nombreLimpio = a.nombre_completo.trim()
+        const partes = nombreLimpio.split(' ')
+        let nombreFormateado = nombreLimpio
+
+        if (partes.length === 2) {
+            nombreFormateado = `${partes[1]}, ${partes[0]}`
+        } else if (partes.length >= 3) {
+            const apellidos = `${partes[partes.length - 2]} ${partes[partes.length - 1]}`
+            const nombre = partes.slice(0, -2).join(' ')
+            nombreFormateado = `${apellidos}, ${nombre}`
+        }
+        return { ...a, nombre_lista_frontend: nombreFormateado }
+    })
+
+    listaProcesada.sort((a, b) => a.nombre_lista_frontend.localeCompare(b.nombre_lista_frontend))
+
+    if (busquedaAlumno.value) {
+        const termino = busquedaAlumno.value.toLowerCase()
+        listaProcesada = listaProcesada.filter(a =>
+            a.nombre_completo.toLowerCase().includes(termino) ||
+            a.nombre_lista_frontend.toLowerCase().includes(termino)
+        )
+    }
+    return listaProcesada
+})
+
+// Alumno activo para llenar la zona de datos
+const alumnoActivo = computed(() => {
+    return alumnos.value.find(a => a.id === alumnoSeleccionadoId.value) || null
+})
+
+// Cálculos matemáticos
+const totalTransferencias = computed(() => {
+    if (!alumnoActivo.value || !alumnoActivo.value.abonos) return 0
+    return alumnoActivo.value.abonos.reduce((sum, abono) => sum + parseFloat(abono.monto || 0), 0)
+})
+
+// 👇 MAGIA NUEVA: Auto-Scroll Inteligente para móviles
+const seleccionarAlumno = (id) => {
+    alumnoSeleccionadoId.value = id;
+
+    // Le damos un respiro a Vue para que renderice los datos y luego bajamos
+    setTimeout(() => {
+        // Solo hacemos auto-scroll si estamos en una pantalla pequeña (celular/tablet)
+        if (window.innerWidth <= 900) {
+            const zonaDatos = document.getElementById('seccion-datos-alumno');
+            if (zonaDatos) {
+                // Calculamos la posición exacta restando unos pixeles para que no quede pegado al borde absoluto
+                const offsetY = zonaDatos.getBoundingClientRect().top + window.scrollY - 10;
+                window.scrollTo({ top: offsetY, behavior: 'smooth' });
+            }
+        }
+    }, 50);
 }
 
-onMounted(() => { cargarDatosFinancieros() })
+const formatearDinero = (monto) => {
+    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(monto || 0)
+}
 
-const formatearDinero = (val) => {
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val || 0)
+const formatearFecha = (fechaString) => {
+    if (!fechaString) return '---'
+    const partes = fechaString.split('-')
+    if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`
+    return fechaString
 }
 </script>
 
 <template>
-    <div class="mis-finanzas">
-        <h1 class="titulo-pagina">🎓 Estado de Cuenta Individual (8°B)</h1>
-        <p class="bajada">Visualiza tus deudas, pagos y el dinero disponible en tu billetera virtual.</p>
+    <div class="contenedor-principal">
+        <div v-if="cargando" class="loading">Cargando Bóveda... 🏦</div>
 
-        <div v-if="cargando" class="loading">Sincronizando con tesorería... ⏳</div>
+        <div v-else class="contenido-finanzas">
+            <h1 class="titulo-pagina">🎓 Estado de Cuentas</h1>
 
-        <div v-else class="grid-finanzas">
+            <div class="tarjeta-banco">
+                <div class="header-banco">
+                    <h3>🏦 Datos para realizar transferencias</h3>
+                    <small>Recuerda enviar tu comprobante a la tesorería para que sea validado.</small>
+                </div>
+                <div class="datos-grid">
+                    <div class="dato-item"><small>Banco</small><strong>BancoEstado</strong></div>
+                    <div class="dato-item"><small>Tipo de Cuenta</small><strong>Cuenta RUT</strong></div>
+                    <div class="dato-item"><small>N° Cuenta</small><strong>12.345.678-9</strong></div>
+                    <div class="dato-item"><small>Nombre</small><strong>Tesorería Curso 8B</strong></div>
+                    <div class="dato-item"><small>RUT</small><strong>12.345.678-9</strong></div>
+                    <div class="dato-item"><small>Correo</small><strong>tesoreria8b@colegio.cl</strong></div>
+                </div>
+            </div>
 
-            <div class="columna-info">
-                <div class="card-blanca banco-info">
-                    <div class="card-header">
-                        <span class="icono-banco">🏦</span>
-                        <h2>Datos para transferir a Tesorería</h2>
+            <div class="layout-principal">
+
+                <aside class="columna-sidebar">
+                    <div class="encabezado-col">
+                        <h3>👥 {{ esStaff ? 'Curso (' + alumnosOrdenados.length + ')' : 'Mis Pupilos' }}</h3>
                     </div>
-                    <div class="datos-banco-grid">
-                        <div class="item-banco"><strong>Banco:</strong> {{ datosBancarios.banco || 'BancoEstado' }}
+
+                    <div v-if="esStaff" class="buscador-wrapper">
+                        <input v-model="busquedaAlumno" type="text" placeholder="🔍 Buscar alumno..."
+                            class="input-busqueda" />
+                    </div>
+
+                    <ul class="lista-nombres">
+                        <li v-for="alumno in alumnosOrdenados" :key="alumno.id" @click="seleccionarAlumno(alumno.id)"
+                            :class="{ 'activo': alumnoSeleccionadoId === alumno.id }">
+                            <span class="avatar-letra">{{ alumno.nombre_completo.charAt(0) }}</span>
+                            <span class="nombre-lista">
+                                <span v-if="esStaff" style="color:#7f8c8d; font-size: 0.8em; margin-right: 5px;">{{
+                                    alumno.numero_lista }}.</span>
+                                {{ alumno.nombre_completo }}
+                            </span>
+                        </li>
+                    </ul>
+                </aside>
+
+                <div class="area-datos" id="seccion-datos-alumno">
+
+                    <div v-if="alumnoActivo" class="header-sticky-alumno">
+                        <div class="avatar-mini">{{ alumnoActivo.nombre_completo.charAt(0) }}</div>
+                        <div class="info-sticky">
+                            <small>Viendo finanzas de:</small>
+                            <span class="nombre-sticky">{{ alumnoActivo.nombre_completo }}</span>
                         </div>
-                        <div class="item-banco"><strong>Tipo de Cuenta:</strong> {{ datosBancarios.tipo_cuenta ||
-                            'Cuenta RUT' }}</div>
-                        <div class="item-banco"><strong>N° Cuenta:</strong> {{ datosBancarios.numero_cuenta ||
-                            '12.345.678-9' }}</div>
-                        <div class="item-banco"><strong>Nombre:</strong> {{ datosBancarios.nombre_titular || 'Tesorería Curso 8B' }}</div>
-                        <div class="item-banco"><strong>RUT:</strong> {{ datosBancarios.rut || '12.345.678-9' }}</div>
-                        <div class="item-banco"><strong>Correo comprobante:</strong> {{ datosBancarios.correo ||
-                            'tesoreria8b@colegio.cl' }}</div>
                     </div>
-                    <p class="hint-banco">Recuerda enviar el comprobante para cargar tu billetera virtual.</p>
-                </div>
-            </div>
 
-            <div class="columna-movimientos">
+                    <div class="grid-tablas">
 
-                <div class="tarjeta-billetera">
-                    <div class="billetera-header">
-                        <span class="icono-billetera">👛</span>
-                        <h3>Billetera Virtual Disponible</h3>
-                    </div>
-                    <div class="billetera-saldo">
-                        <h2>{{ formatearDinero(saldoBilletera) }}</h2>
-                        <p>Dinero cargado y validado por tesorería.</p>
-                    </div>
-                </div>
+                        <section class="columna-datos">
+                            <div class="encabezado-col color-transferencias">
+                                <h3>💸 Transferencias Realizadas</h3>
+                            </div>
 
-                <div class="card-blanca mov-container">
-                    <h3>📄 Movimientos de Cuenta</h3>
-                    <div class="tabs-movimientos">
-                        <details class="acordeon-pago" open>
-                            <summary>Deudas y Cargos del Curso ({{ deudas.length }})</summary>
-                            <table class="tabla-movimientos">
-                                <thead>
-                                    <tr>
-                                        <th>Concepto</th>
-                                        <th>Vence</th>
-                                        <th>Monto & Estado</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-if="deudas.length === 0">
-                                        <td colspan="3" class="hint">Sin cobros registrados aún.</td>
-                                    </tr>
-                                    <tr v-for="deuda in deudas" :key="deuda.id">
-                                        <td><strong>{{ deuda.concepto_nombre }}</strong></td>
-                                        <td>{{ deuda.fecha_vencimiento }}</td>
-                                        <td :class="deuda.estado === 'PAGADO' ? 'pagado' : 'pendiente'">
-                                            {{ formatearDinero(deuda.monto_total) }}
-                                            <span class="badge-estado">{{ deuda.estado }}</span>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </details>
+                            <div class="contenedor-tabla" v-if="alumnoActivo">
+                                <table class="tabla-compacta"
+                                    v-if="alumnoActivo.abonos && alumnoActivo.abonos.length > 0">
+                                    <thead>
+                                        <tr>
+                                            <th>Fecha</th>
+                                            <th>Detalle</th>
+                                            <th style="text-align: right;">Monto</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="abono in alumnoActivo.abonos" :key="abono.id">
+                                            <td class="texto-menor">{{ formatearFecha(abono.fecha_transferencia) }}</td>
+                                            <td class="texto-menor">{{ abono.comprobante || 'Depósito' }}</td>
+                                            <td style="text-align: right; font-weight: bold; color: #27ae60;">
+                                                +{{ formatearDinero(abono.monto) }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p v-else class="hint-vacio">No hay transferencias registradas.</p>
+                            </div>
 
-                        <details class="acordeon-pago">
-                            <summary>Cargas de Dinero Manuales (Billetera) ({{ abonos.length }})</summary>
-                            <table class="tabla-movimientos">
-                                <thead>
-                                    <tr>
-                                        <th>Fecha</th>
-                                        <th>Ref / Boleta</th>
-                                        <th>Monto</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-if="abonos.length === 0">
-                                        <td colspan="3" class="hint">No has realizado abonos manuales.</td>
-                                    </tr>
-                                    <tr v-for="abono in abonos" :key="abono.id">
-                                        <td>{{ abono.fecha_transferencia }}</td>
-                                        <td><small>{{ abono.comprobante || 'Sin Referencia' }}</small></td>
-                                        <td class="monto-abono">{{ formatearDinero(abono.monto) }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </details>
+                            <div class="pie-columna" v-if="alumnoActivo">
+                                <span>Total Transferido:</span>
+                                <strong style="color: #27ae60; font-size: 1.1em;">{{
+                                    formatearDinero(totalTransferencias) }}</strong>
+                            </div>
+                        </section>
+
+                        <section class="columna-datos">
+                            <div class="encabezado-col color-cobros">
+                                <h3>📋 Cuotas y Cobros</h3>
+                            </div>
+
+                            <div class="contenedor-tabla" v-if="alumnoActivo">
+                                <table class="tabla-compacta"
+                                    v-if="alumnoActivo.cargos && alumnoActivo.cargos.length > 0">
+                                    <thead>
+                                        <tr>
+                                            <th>Concepto</th>
+                                            <th>Vence</th>
+                                            <th style="text-align: right;">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="cargo in alumnoActivo.cargos" :key="cargo.id">
+                                            <td>
+                                                <strong>{{ cargo.concepto_nombre }}</strong><br>
+                                                <span class="texto-menor">{{ formatearDinero(cargo.monto_total)
+                                                    }}</span>
+                                            </td>
+                                            <td class="texto-menor">{{ formatearFecha(cargo.fecha_vencimiento ||
+                                                cargo.concepto_fecha_vencimiento) }}</td>
+                                            <td style="text-align: right;">
+                                                <span class="badge-estado-mini" :class="cargo.estado">{{ cargo.estado
+                                                    }}</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p v-else class="hint-vacio">No hay deudas registradas.</p>
+                            </div>
+                        </section>
+
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
 </template>
 
 <style scoped>
-.mis-finanzas {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 20px;
+.contenedor-principal {
     font-family: 'Segoe UI', sans-serif;
     color: #333;
-}
-
-.titulo-pagina {
-    color: #2c3e50;
-    text-align: center;
-    margin-bottom: 5px;
-}
-
-.bajada {
-    color: #7f8c8d;
-    text-align: center;
-    margin-bottom: 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
 }
 
 .loading {
@@ -168,196 +257,341 @@ const formatearDinero = (val) => {
     color: #7f8c8d;
 }
 
-.grid-finanzas {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr;
-    gap: 30px;
-    align-items: start;
-}
-
-@media (max-width: 900px) {
-    .grid-finanzas {
-        grid-template-columns: 1fr;
-    }
-}
-
-.card-blanca {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-    padding: 20px;
-}
-
-/* BANCO INFO */
-.card-header {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    border-bottom: 1px solid #eee;
-    padding-bottom: 15px;
-    margin-bottom: 15px;
-}
-
-.icono-banco {
-    font-size: 2rem;
-}
-
-.card-header h2 {
-    margin: 0;
-    font-size: 1.3rem;
-    color: #2c3e50;
-}
-
-.datos-banco-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 10px;
-}
-
-.item-banco strong {
-    color: #555;
-    font-size: 0.9em;
-}
-
-.item-banco {
-    font-size: 0.95em;
-    color: #333;
-}
-
-.hint-banco {
-    margin-top: 20px;
-    font-size: 0.85em;
-    color: #7f8c8d;
-    background: #fbfbfb;
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid #f0f0f0;
+.titulo-pagina {
     text-align: center;
-}
-
-/* COLUMNA DERECHA */
-.columna-movimientos {
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-}
-
-/* BILLETERA (NUEVO ESTILO) */
-.tarjeta-billetera {
-    background: linear-gradient(135deg, #2c3e50, #34495e);
-    color: white;
-    border-radius: 12px;
-    padding: 25px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
-.billetera-header {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 15px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding-bottom: 10px;
-}
-
-.billetera-header h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.icono-billetera {
+    color: #2c3e50;
+    margin-bottom: 25px;
     font-size: 1.8rem;
 }
 
-.billetera-saldo h2 {
-    font-size: 2.8rem;
-    color: #2ecc71;
+/* === TARJETA BANCO (Tu diseño renovado) === */
+.tarjeta-banco {
+    background: #f8fbff;
+    border: 1px solid #cce5ff;
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.header-banco h3 {
     margin: 0 0 5px 0;
+    color: #004085;
 }
 
-.billetera-saldo p {
-    margin: 0;
-    opacity: 0.8;
-    font-size: 0.9rem;
-}
-
-/* TABLAS Y ACORDEONES */
-.mov-container h3 {
-    margin-top: 0;
-}
-
-.acordeon-pago {
-    border-bottom: 1px solid #eee;
+.header-banco small {
+    color: #666;
+    display: block;
     margin-bottom: 15px;
 }
 
-.acordeon-pago summary {
-    font-weight: bold;
-    padding: 10px;
-    cursor: pointer;
-    color: #3498db;
+.datos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 15px;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px dashed #b8daff;
+    text-align: center;
 }
 
-.acordeon-pago table {
+.dato-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.dato-item small {
+    color: #7f8c8d;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.dato-item strong {
+    color: #2c3e50;
+    font-size: 1.05em;
+}
+
+/* === NUEVO LAYOUT (SIDEBAR + AREA DATOS) === */
+.layout-principal {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+/* === IZQUIERDA: SIDEBAR LISTA === */
+.columna-sidebar {
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #eaeaea;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    height: 100%;
+}
+
+.encabezado-col {
+    padding: 12px 15px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #eee;
+}
+
+.encabezado-col h3 {
+    margin: 0;
+    font-size: 1.1em;
+    color: #2c3e50;
+}
+
+.buscador-wrapper {
+    padding: 10px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.input-busqueda {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+    font-size: 0.9em;
+}
+
+.lista-nombres {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    max-height: 450px;
+    overflow-y: auto;
+}
+
+.lista-nombres li {
+    padding: 10px 15px;
+    border-bottom: 1px solid #f9f9f9;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.2s;
+}
+
+.lista-nombres li:hover {
+    background: #f0f8ff;
+}
+
+.lista-nombres li.activo {
+    background: #e3f2fd;
+    border-left: 4px solid #3498db;
+}
+
+.avatar-letra {
+    background: #bdc3c7;
+    color: white;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.lista-nombres li.activo .avatar-letra {
+    background: #3498db;
+}
+
+.nombre-lista {
+    font-size: 0.9em;
+    color: #34495e;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* === DERECHA: AREA DE DATOS Y STICKY HEADER === */
+.area-datos {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* 📌 LA MAGIA STICKY */
+.header-sticky-alumno {
+    position: sticky;
+    top: 5px;
+    /* Se pega a 5px del techo al scrollear */
+    z-index: 10;
+    background: #2c3e50;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.header-sticky-alumno .avatar-mini {
+    background: #3498db;
+    color: white;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border: 2px solid white;
+}
+
+.info-sticky {
+    display: flex;
+    flex-direction: column;
+}
+
+.info-sticky small {
+    color: #bdc3c7;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.nombre-sticky {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-top: 2px;
+}
+
+/* === GRILLA INTERNA PARA TABLAS === */
+.grid-tablas {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.columna-datos {
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #eaeaea;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.color-transferencias {
+    border-top: 4px solid #27ae60;
+}
+
+.color-cobros {
+    border-top: 4px solid #f39c12;
+}
+
+.contenedor-tabla {
+    flex-grow: 1;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.tabla-compacta {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9em;
-    margin-top: 10px;
-    margin-bottom: 20px;
+    font-size: 0.85em;
 }
 
-.acordeon-pago th {
-    text-align: left;
-    padding: 8px;
+.tabla-compacta th {
+    background: #fafafa;
     color: #7f8c8d;
-    border-bottom: 2px solid #ddd;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    border-bottom: 2px solid #eee;
 }
 
-.acordeon-pago td {
-    padding: 10px 8px;
-    border-bottom: 1px solid #f1f1f1;
-}
-
-.pendiente {
-    color: #c0392b;
-    font-weight: bold;
-}
-
-.pagado {
-    color: #27ae60;
-    font-weight: bold;
-}
-
-.badge-estado {
-    display: inline-block;
-    padding: 2px 6px;
-    font-size: 0.7em;
-    background: #ccc;
-    color: white;
-    border-radius: 4px;
+.tabla-compacta td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f5f5f5;
     vertical-align: middle;
-    margin-left: 5px;
 }
 
-.pagado .badge-estado {
-    background: #2ecc71;
+.tabla-compacta tr:last-child td {
+    border-bottom: none;
 }
 
-.pendiente .badge-estado {
+.tabla-compacta tr:hover {
+    background-color: #fafafa;
+}
+
+.texto-menor {
+    font-size: 0.95em;
+    color: #555;
+}
+
+.badge-estado-mini {
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 0.75em;
+    font-weight: bold;
+    color: white;
+}
+
+.badge-estado-mini.PENDIENTE {
     background: #e74c3c;
 }
 
-.monto-abono {
-    color: #27ae60;
-    font-weight: bold;
+.badge-estado-mini.PAGADO {
+    background: #2ecc71;
 }
 
-.hint {
+.hint-vacio {
     text-align: center;
     color: #95a5a6;
     padding: 20px;
     font-style: italic;
+    font-size: 0.9em;
+}
+
+.pie-columna {
+    background: #f8fbff;
+    border-top: 1px solid #eee;
+    padding: 12px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.95em;
+}
+
+/* === RESPONSIVO (La magia ocurre aquí) === */
+@media (max-width: 900px) {
+    .layout-principal {
+        grid-template-columns: 1fr;
+        /* Apila el sidebar y el área de datos */
+        gap: 15px;
+    }
+
+    .grid-tablas {
+        grid-template-columns: 1fr;
+        /* Apila las dos tablas una sobre otra */
+    }
+
+    .lista-nombres {
+        max-height: 250px;
+        /* Acorta la lista en móvil para llegar rápido al contenido */
+    }
+
+    .header-sticky-alumno {
+        top: 10px;
+        /* Le da un pequeño margen en móviles al hacer scroll */
+    }
 }
 </style>
