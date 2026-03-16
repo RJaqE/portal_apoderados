@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import (Alumno, CuentaAlumno, MovimientoCuenta, Cargo, Abono, ConceptoCobro, Noticia, Evento, DepositoPlazo, EgresoTesoreria)
+from .models import (Alumno, CuentaAlumno, MovimientoCuenta, Cargo, Abono, ConceptoCobro, 
+                     Noticia, Evento, DepositoPlazo, EgresoTesoreria, ImagenGaleria)
 
 class UserSerializer(serializers.ModelSerializer):
     nombre_completo = serializers.SerializerMethodField()
@@ -83,19 +84,24 @@ class AlumnoSerializer(serializers.ModelSerializer):
         correos = [apoderado.user.email for apoderado in obj.apoderados.all() if apoderado.user.email]
         return " / ".join(correos) if correos else "Sin Email Registrado"
 
+class ImagenGaleriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ImagenGaleria
+        fields = ['id', 'imagen']
+
 class NoticiaSerializer(serializers.ModelSerializer):
     autor_nombre = serializers.SerializerMethodField()
+    # 👇 NUEVO: Incluir la galería de imágenes dentro de la noticia
+    galeria = ImagenGaleriaSerializer(many=True, read_only=True)
+
     class Meta:
         model = Noticia
         fields = '__all__'
-        read_only_fields = ['autor', 'fecha_creacion']
 
     def get_autor_nombre(self, obj):
         if obj.autor:
-            if obj.autor.first_name and obj.autor.last_name:
-                return f"{obj.autor.first_name} {obj.autor.last_name}"
-            return obj.autor.username
-        return "Anónimo"
+            return f"{obj.autor.first_name} {obj.autor.last_name}".strip() or obj.autor.username
+        return "Directiva"
 
 class EventoSerializer(serializers.ModelSerializer):
     class Meta:

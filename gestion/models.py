@@ -128,12 +128,26 @@ class Noticia(models.Model):
     contenido = models.TextField()
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     autor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    
+    # Mantenemos la imagen antigua por si hay noticias viejas, pero ya no la usaremos como principal.
     imagen = models.ImageField(upload_to='noticias/', null=True, blank=True)
+    
+    # 👇 NUEVO: Archivo adjunto (PDF, Word, etc)
+    archivo = models.FileField(upload_to='noticias/archivos/', null=True, blank=True)
+    
     es_importante = models.BooleanField(default=False)
     etiqueta = models.CharField(max_length=20, choices=ETIQUETAS, default='GENERAL')
 
     def __str__(self):
         return f"{self.titulo} ({self.fecha_creacion.strftime('%d/%m/%Y')})"
+
+# 👇 NUEVO MODELO: Mini-Galería para cada noticia
+class ImagenGaleria(models.Model):
+    noticia = models.ForeignKey(Noticia, related_name='galeria', on_delete=models.CASCADE)
+    imagen = models.ImageField(upload_to='noticias/galeria/')
+    
+    def __str__(self):
+        return f"Foto de: {self.noticia.titulo}"
 
 class Evento(models.Model):
     TIPOS = [('REUNION', 'Reunión'), ('ACTIVIDAD', 'Actividad'), ('COBRO', 'Cobro / Rifa'), ('ACADEMICO', 'Académico')]

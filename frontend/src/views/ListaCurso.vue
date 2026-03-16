@@ -22,11 +22,10 @@ const cargarAlumnos = async () => {
 }
 
 // 2. ORDENAR CON VUE (Magia Frontend ✨)
-// Computed está vigilando: Si 'alumnos' cambia, reordena automáticamente.
+// Computed está vigilando: Si 'alumnos' cambia, reordena automáticamente por número de lista.
 const alumnosOrdenados = computed(() => {
-    // Usamos .slice() para no mutar el array original y .localeCompare para ordenar alfabéticamente
     return alumnos.value.slice().sort((a, b) => {
-        return a.nombre_lista.localeCompare(b.nombre_lista)
+        return a.numero_lista - b.numero_lista
     })
 })
 
@@ -56,9 +55,9 @@ onMounted(() => {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="(alumno, index) in alumnosOrdenados" :key="alumno.id">
-                        <td class="col-numero">{{ index + 1 }}</td>
-                        <td class="col-destacada">{{ alumno.nombre_lista }}</td>
+                    <tr v-for="alumno in alumnosOrdenados" :key="alumno.id">
+                        <td class="col-numero">{{ alumno.numero_lista }}</td>
+                        <td class="col-destacada">{{ alumno.nombre_completo || alumno.nombre_lista }}</td>
                         <td>{{ alumno.apoderado_nombre }}</td>
                         <td class="col-email">{{ alumno.apoderado_email }}</td>
                     </tr>

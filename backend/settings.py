@@ -111,7 +111,7 @@ else:
         }
     }
 
-# 🚀 CONEXIÓN FORZADA A PRODUCCIÓN (SOLO PARA MIGRAR AHORA) 🚀
+#🚀 CONEXIÓN FORZADA A PRODUCCIÓN (SOLO PARA MIGRAR AHORA) 🚀
 #DATABASES = {
 #    'default': dj_database_url.parse('mysql://root:ObigzOmyYEBFmUMtosQLLWHWRvIzMqNP@switchyard.proxy.rlwy.net:39251/railway')
 #}

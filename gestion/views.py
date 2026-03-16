@@ -16,7 +16,7 @@ from rest_framework.views import APIView
 
 from .models import (
     Alumno, CuentaAlumno, Abono, ConceptoCobro, Cargo, MovimientoCuenta, 
-    Noticia, Evento, PerfilUsuario, DepositoPlazo, EgresoTesoreria
+    Noticia, Evento, PerfilUsuario, DepositoPlazo, EgresoTesoreria, ImagenGaleria
 )
 from .serializers import (
     AlumnoSerializer, AbonoSerializer, ConceptoSerializer, CargoSerializer, 
@@ -296,8 +296,23 @@ class NoticiaViewSet(viewsets.ModelViewSet):
     queryset = Noticia.objects.all().order_by('-es_importante', '-fecha_creacion')
     serializer_class = NoticiaSerializer
     permission_classes = [IsAuthenticatedOrReadOnly] 
-    def perform_create(self, serializer):
-        serializer.save(autor=self.request.user)
+    
+    def create(self, request, *args, **kwargs):
+        # 1. Guardamos la noticia y su archivo adjunto normal
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        noticia = serializer.save(autor=self.request.user)
+
+        # 2. Atrapamos las múltiples imágenes (El frontend enviará un array llamado 'galeria_imagenes')
+        imagenes = request.FILES.getlist('galeria_imagenes')
+        
+        # 3. Guardamos hasta un máximo de 6 fotos por seguridad de espacio
+        for img in imagenes[:6]:
+            ImagenGaleria.objects.create(noticia=noticia, imagen=img)
+
+        # Devolvemos la noticia recién creada con su galería incluida
+        headers = self.get_success_headers(serializer.data)
+        return Response(self.get_serializer(noticia).data, status=status.HTTP_201_CREATED, headers=headers)
 
 class EventoViewSet(viewsets.ModelViewSet):
     queryset = Evento.objects.all().order_by('fecha')
