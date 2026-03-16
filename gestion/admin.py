@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (PerfilUsuario, Apoderado, Alumno, CuentaAlumno, ConceptoCobro, 
                      Cargo, Abono, MovimientoCuenta, Noticia, Evento, DepositoPlazo,
-                     EgresoTesoreria)
+                     EgresoTesoreria, ImagenGaleria) # 👈 Agregamos ImagenGaleria
 
 @admin.register(PerfilUsuario)
 class PerfilUsuarioAdmin(admin.ModelAdmin):
@@ -48,7 +48,18 @@ class MovimientoCuentaAdmin(admin.ModelAdmin):
     list_filter = ('tipo',)
     search_fields = ('cuenta__alumno__nombre_completo', 'descripcion')
 
-admin.site.register(Noticia)
+# 👇 NUEVO: Configuración para que la galería se vea DENTRO de la Noticia
+class ImagenGaleriaInline(admin.TabularInline):
+    model = ImagenGaleria
+    extra = 1  # Muestra 1 espacio en blanco por defecto para subir fotos
+
+@admin.register(Noticia)
+class NoticiaAdmin(admin.ModelAdmin):
+    list_display = ('titulo', 'etiqueta', 'fecha_creacion', 'autor', 'es_importante')
+    list_filter = ('etiqueta', 'es_importante')
+    search_fields = ('titulo', 'contenido')
+    inlines = [ImagenGaleriaInline] # 👈 Aquí conectamos la galería
+
 admin.site.register(Evento)
 admin.site.register(DepositoPlazo)
 admin.site.register(EgresoTesoreria)

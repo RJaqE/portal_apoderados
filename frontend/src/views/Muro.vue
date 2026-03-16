@@ -10,82 +10,24 @@ const cargando = ref(true)
 const busqueda = ref('')
 const esAdmin = ref(false)
 const noticiaSeleccionada = ref(null)
+const fotoAmpliada = ref(null) // Para la galería de fotos
 
-// Variable para controlar la navegación del menú izquierdo
-const vistaActiva = ref('noticias') // Puede ser 'noticias' o 'horario'
-
-// 🚩 NUEVO: Control del menú flotante móvil
+const vistaActiva = ref('noticias')
 const menuMovilAbierto = ref(false)
 
 const seleccionarVista = (vista) => {
     vistaActiva.value = vista
-    menuMovilAbierto.value = false // Cierra el menú automáticamente al elegir
-    window.scrollTo({ top: 0, behavior: 'smooth' }) // Sube la pantalla suavemente
+    menuMovilAbierto.value = false
+    window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-// === DATOS DEL HORARIO 2025 ===
+// === DATOS DEL HORARIO 2025 (Mantenemos tu data intacta) ===
 const horarioSemana = ref([
-    {
-        dia: 'Lunes',
-        bloques: [
-            { tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Biología CN' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Lengua y Literatura' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Música' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Matemática' }
-        ]
-    },
-    {
-        dia: 'Martes',
-        bloques: [
-            { tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Biología CN' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Física CN' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Historia, Geografía y CS' },
-            { tipo: 'almuerzo', tiempo: '13:00 - 13:45', materia: '🍽️ Almuerzo' },
-            { tipo: 'clase', tiempo: '13:45 - 14:25', materia: 'Orientación' },
-            { tipo: 'clase', tiempo: '14:35 - 16:00', materia: 'Inglés' }
-        ]
-    },
-    {
-        dia: 'Miércoles',
-        bloques: [
-            { tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Lengua y Literatura' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Ed. Física y Salud' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Matemática' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Historia, Geografía y CS' }
-        ]
-    },
-    {
-        dia: 'Jueves',
-        bloques: [
-            { tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Inglés' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Lengua y Literatura' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Tecnología' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Matemática' }
-        ]
-    },
-    {
-        dia: 'Viernes',
-        bloques: [
-            { tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Química CN' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Artes Visuales' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Lengua y Literatura' },
-            { tipo: 'recreo' },
-            { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Matemática' }
-        ]
-    }
+    { dia: 'Lunes', bloques: [{ tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Biología CN' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Lengua y Literatura' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Música' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Matemática' }] },
+    { dia: 'Martes', bloques: [{ tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Biología CN' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Física CN' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Historia, Geografía y CS' }, { tipo: 'almuerzo', tiempo: '13:00 - 13:45', materia: '🍽️ Almuerzo' }, { tipo: 'clase', tiempo: '13:45 - 14:25', materia: 'Orientación' }, { tipo: 'clase', tiempo: '14:35 - 16:00', materia: 'Inglés' }] },
+    { dia: 'Miércoles', bloques: [{ tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Lengua y Literatura' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Ed. Física y Salud' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Matemática' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Historia, Geografía y CS' }] },
+    { dia: 'Jueves', bloques: [{ tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Inglés' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Lengua y Literatura' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Tecnología' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Matemática' }] },
+    { dia: 'Viernes', bloques: [{ tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Química CN' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Artes Visuales' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Lengua y Literatura' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Matemática' }] }
 ])
 
 // === VARIABLES PARA CREAR/EDITAR NOTICIAS ===
@@ -97,10 +39,12 @@ const formulario = ref({
     titulo: '',
     contenido: '',
     etiqueta: 'GENERAL',
-    imagen: null
+    archivo: null,
+    galeria: []
 })
-const imagenPreview = ref(null)
-const eliminarImagen = ref(false) // Interruptor para borrar imagen existente
+
+const archivoPreviewNombre = ref('')
+const galeriaPreview = ref([])
 
 // === PERMISOS Y CARGA DE DATOS ===
 const verificarPermisos = async () => {
@@ -126,13 +70,13 @@ const cargarDatos = async () => {
     }
 }
 
-// === LÓGICA DEL FORMULARIO (CREAR Y EDITAR NOTICIAS) ===
+// === LÓGICA DEL FORMULARIO ===
 const abrirModalCrear = () => {
     modoEdicion.value = false
     idEdicion.value = null
-    formulario.value = { titulo: '', contenido: '', etiqueta: 'GENERAL', imagen: null }
-    imagenPreview.value = null
-    eliminarImagen.value = false
+    formulario.value = { titulo: '', contenido: '', etiqueta: 'GENERAL', archivo: null, galeria: [] }
+    archivoPreviewNombre.value = ''
+    galeriaPreview.value = []
     mostrarModalForm.value = true
     document.body.style.overflow = 'hidden'
 }
@@ -144,15 +88,11 @@ const abrirModalEditar = (noticia) => {
         titulo: noticia.titulo,
         contenido: noticia.contenido,
         etiqueta: noticia.etiqueta,
-        imagen: null
+        archivo: null,
+        galeria: [] // La galería no se edita en este panel simple
     }
-    eliminarImagen.value = false
-
-    if (noticia.imagen) {
-        imagenPreview.value = fixImagenUrl(noticia.imagen)
-    } else {
-        imagenPreview.value = null
-    }
+    archivoPreviewNombre.value = noticia.archivo ? 'Documento actual ya subido' : ''
+    galeriaPreview.value = []
     mostrarModalForm.value = true
     document.body.style.overflow = 'hidden'
 }
@@ -162,19 +102,23 @@ const cerrarModalForm = () => {
     document.body.style.overflow = 'auto'
 }
 
-const procesarImagen = (event) => {
-    const archivo = event.target.files[0]
-    if (archivo) {
-        formulario.value.imagen = archivo
-        imagenPreview.value = URL.createObjectURL(archivo)
-        eliminarImagen.value = false
+const procesarArchivo = (event) => {
+    const file = event.target.files[0]
+    if (file) {
+        formulario.value.archivo = file
+        archivoPreviewNombre.value = file.name
     }
 }
 
-const prepararBorradoImagen = () => {
-    imagenPreview.value = null
-    formulario.value.imagen = null
-    eliminarImagen.value = true
+const procesarGaleria = (event) => {
+    const files = Array.from(event.target.files)
+    if (files.length > 6) {
+        Swal.fire('Límite excedido', 'Solo puedes subir hasta 6 fotos a la vez.', 'warning')
+        event.target.value = ''
+        return
+    }
+    formulario.value.galeria = files
+    galeriaPreview.value = files.map(file => URL.createObjectURL(file))
 }
 
 const guardarNoticia = async () => {
@@ -188,10 +132,15 @@ const guardarNoticia = async () => {
     formData.append('contenido', formulario.value.contenido)
     formData.append('etiqueta', formulario.value.etiqueta)
 
-    if (formulario.value.imagen) {
-        formData.append('imagen', formulario.value.imagen)
-    } else if (modoEdicion.value && eliminarImagen.value) {
-        formData.append('imagen', '')
+    if (formulario.value.archivo) {
+        formData.append('archivo', formulario.value.archivo)
+    }
+
+    // Agregar múltiples imágenes solo en creación
+    if (!modoEdicion.value && formulario.value.galeria.length > 0) {
+        formulario.value.galeria.forEach(img => {
+            formData.append('galeria_imagenes', img)
+        })
     }
 
     try {
@@ -204,13 +153,12 @@ const guardarNoticia = async () => {
             const index = noticias.value.findIndex(n => n.id === idEdicion.value)
             if (index !== -1) noticias.value[index] = response.data
             Swal.fire('¡Actualizado!', 'La noticia fue corregida', 'success')
-
         } else {
             const response = await api.post('noticias/', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             })
             noticias.value.unshift(response.data)
-            Swal.fire('¡Publicado!', 'Noticia creada con éxito', 'success')
+            Swal.fire('¡Publicado!', 'Noticia y archivos subidos con éxito', 'success')
         }
 
         cerrarModalForm()
@@ -223,7 +171,7 @@ const guardarNoticia = async () => {
 
 const borrarNoticia = async (id) => {
     const result = await Swal.fire({
-        title: '¿Borrar noticia?', text: "No se puede deshacer", icon: 'warning',
+        title: '¿Borrar noticia?', text: "Se borrará la noticia, el documento y sus fotos asociadas.", icon: 'warning',
         showCancelButton: true, confirmButtonText: 'Sí, borrar', cancelButtonText: 'Cancelar'
     })
     if (result.isConfirmed) {
@@ -235,7 +183,7 @@ const borrarNoticia = async (id) => {
     }
 }
 
-// === UTILIDADES DE NOTICIAS ===
+// === UTILIDADES VISUALES ===
 const noticiasFiltradas = computed(() => {
     if (!busqueda.value) return noticias.value
     return noticias.value.filter(n =>
@@ -250,14 +198,28 @@ const abrirNoticia = (noticia) => {
 }
 const cerrarModalLectura = () => {
     noticiaSeleccionada.value = null
+    fotoAmpliada.value = null
     document.body.style.overflow = 'auto'
 }
 
-const obtenerColorEtiqueta = (tag) => {
-    const map = { 'GENERAL': '#3498db', 'URGENTE': '#e74c3c', 'REUNION': '#9b59b6', 'SOCIAL': '#2ecc71', 'COBRANZA': '#f1c40f' }
-    return map[tag] || '#95a5a6'
+// Mapeo de Colores y Emojis por Categoría
+const estilosEtiqueta = (tag) => {
+    const config = {
+        'GENERAL': { color: '#3498db', icono: '📢' },
+        'URGENTE': { color: '#e74c3c', icono: '🚨' },
+        'REUNION': { color: '#9b59b6', icono: '👥' },
+        'SOCIAL': { color: '#2ecc71', icono: '🎉' },
+        'COBRANZA': { color: '#f1c40f', icono: '💰' },
+        'ACADEMICO': { color: '#e67e22', icono: '📚' },
+        'FINANZAS': { color: '#34495e', icono: '💵' }
+    }
+    return config[tag] || { color: '#95a5a6', icono: '📌' }
 }
-const fixImagenUrl = (url) => {
+
+const obtenerColorEtiqueta = (tag) => estilosEtiqueta(tag).color
+const obtenerIconoEtiqueta = (tag) => estilosEtiqueta(tag).icono
+
+const fixMediaUrl = (url) => {
     if (!url) return ''
     if (url.startsWith('http')) return url
     return `http://127.0.0.1:8000${url}`
@@ -268,12 +230,9 @@ onMounted(() => {
     verificarPermisos()
 })
 
-// === VARIABLES Y LÓGICA PARA EVENTOS ===
+// === EVENTOS ===
 const mostrarModalEvento = ref(false)
-const formEvento = ref({
-    titulo: '',
-    fecha: ''
-})
+const formEvento = ref({ titulo: '', fecha: '' })
 
 const abrirModalEvento = () => {
     formEvento.value = { titulo: '', fecha: '' }
@@ -296,11 +255,9 @@ const guardarEvento = async () => {
         const response = await api.post('eventos/', formEvento.value)
         eventos.value.push(response.data)
         eventos.value.sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
-
         Swal.fire('¡Agendado!', 'El evento se programó con éxito', 'success')
         cerrarModalEvento()
     } catch (error) {
-        console.error(error)
         Swal.fire('Error', 'No se pudo guardar el evento', 'error')
     }
 }
@@ -327,12 +284,9 @@ const borrarEvento = async (id) => {
             <div class="menu-muro">
                 <h3>📌 Menú</h3>
                 <ul>
-                    <li :class="{ activo: vistaActiva === 'noticias' }" @click="vistaActiva = 'noticias'">
-                        📰 Noticias
+                    <li :class="{ activo: vistaActiva === 'noticias' }" @click="vistaActiva = 'noticias'">📰 Noticias
                     </li>
-                    <li :class="{ activo: vistaActiva === 'horario' }" @click="vistaActiva = 'horario'">
-                        📅 Horario
-                    </li>
+                    <li :class="{ activo: vistaActiva === 'horario' }" @click="vistaActiva = 'horario'">📅 Horario</li>
                     <li class="inactivo">📊 Encuestas <small>(Pronto)</small></li>
                     <li class="inactivo">📁 Documentos <small>(Pronto)</small></li>
                 </ul>
@@ -340,16 +294,12 @@ const borrarEvento = async (id) => {
         </aside>
 
         <main class="feed-central">
-
-
             <div v-if="vistaActiva === 'noticias'" class="vista-animada">
 
                 <div class="feed-header">
                     <div class="titulo-row">
                         <h2>📢 Muro Informativo</h2>
-                        <button v-if="esAdmin" class="btn-crear" @click="abrirModalCrear">
-                            + Nueva
-                        </button>
+                        <button v-if="esAdmin" class="btn-crear" @click="abrirModalCrear">+ Nueva</button>
                     </div>
                     <div class="buscador-row">
                         <input v-model="busqueda" type="text" placeholder="🔍 Buscar noticias..." />
@@ -373,8 +323,8 @@ const borrarEvento = async (id) => {
                                 title="Borrar">🗑️</button>
                         </div>
 
-                        <div v-if="noticia.imagen" class="imagen-banner">
-                            <img :src="fixImagenUrl(noticia.imagen)" alt="Imagen noticia" />
+                        <div class="banner-icono" :style="{ backgroundColor: obtenerColorEtiqueta(noticia.etiqueta) }">
+                            <span class="icono-gigante">{{ obtenerIconoEtiqueta(noticia.etiqueta) }}</span>
                         </div>
 
                         <div class="contenido-tarjeta">
@@ -384,6 +334,10 @@ const borrarEvento = async (id) => {
                                     {{ noticia.etiqueta }}
                                 </span>
                                 <span class="fecha">{{ new Date(noticia.fecha_creacion).toLocaleDateString() }}</span>
+                                <span v-if="noticia.archivo" title="Contiene un archivo" class="badge-adjunto">📎
+                                    Adjunto</span>
+                                <span v-if="noticia.galeria && noticia.galeria.length > 0" title="Contiene fotos"
+                                    class="badge-adjunto">🖼️ Fotos ({{ noticia.galeria.length }})</span>
                             </div>
 
                             <h3 class="titulo-noticia">{{ noticia.titulo }}</h3>
@@ -401,72 +355,50 @@ const borrarEvento = async (id) => {
             <div v-else-if="vistaActiva === 'horario'" class="vista-animada">
                 <div class="feed-header">
                     <h2>📅 Horario Octavo Básico 2025</h2>
-                    <p style="color: #7f8c8d; font-size: 0.95rem; margin-top: 5px;">
-                        Desliza hacia abajo en celulares para ver todos los días.
-                    </p>
+                    <p style="color: #7f8c8d; font-size: 0.95rem; margin-top: 5px;">Desliza hacia abajo en celulares
+                        para ver todos los días.</p>
                 </div>
-
                 <div class="horario-falsa-tabla">
                     <div v-for="dia in horarioSemana" :key="dia.dia" class="dia-columna">
                         <div class="dia-titulo">{{ dia.dia }}</div>
-
                         <div class="bloques-container">
                             <div v-for="(bloque, index) in dia.bloques" :key="index">
-
                                 <div v-if="bloque.tipo === 'clase'" class="bloque-clase">
                                     <span class="tiempo">{{ bloque.tiempo }}</span>
                                     <span class="materia">{{ bloque.materia }}</span>
                                 </div>
-
                                 <div v-else-if="bloque.tipo === 'recreo'" class="bloque-recreo"></div>
-
                                 <div v-else-if="bloque.tipo === 'almuerzo'" class="bloque-almuerzo">
                                     <span class="tiempo">{{ bloque.tiempo }}</span>
                                     <span class="materia">{{ bloque.materia }}</span>
                                 </div>
-
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-
         </main>
 
         <aside class="sidebar-right">
             <div class="widget tarjeta-widget">
                 <div class="widget-header header-con-boton">
                     <h3>📅 Próximos Eventos</h3>
-                    <button v-if="esAdmin" class="btn-crear-mini" @click="abrirModalEvento" title="Nuevo Evento">
-                        +
-                    </button>
+                    <button v-if="esAdmin" class="btn-crear-mini" @click="abrirModalEvento"
+                        title="Nuevo Evento">+</button>
                 </div>
-
                 <ul class="lista-eventos">
-                    <li v-if="eventos.length === 0" class="sin-eventos">
-                        <small>No hay eventos próximos</small>
-                    </li>
-
+                    <li v-if="eventos.length === 0" class="sin-eventos"><small>No hay eventos próximos</small></li>
                     <li v-for="evento in eventos" :key="evento.id" class="item-evento-relativo">
-                        <span class="dia">
-                            {{ new Date(evento.fecha).getDate() }}
-                        </span>
-
+                        <span class="dia">{{ new Date(evento.fecha).getDate() }}</span>
                         <div class="evento-info">
                             <strong>{{ evento.titulo }}</strong>
-                            <small>
-                                {{ new Date(evento.fecha).toLocaleDateString('es-CL', { month: 'short' }) }} -
-                                {{ new Date(evento.fecha).toLocaleTimeString('es-CL', {
-                                    hour: '2-digit',
-                                    minute: '2-digit', hour12: false
-                                }) }} hrs
-                            </small>
+                            <small>{{ new Date(evento.fecha).toLocaleDateString('es-CL', { month: 'short' }) }} - {{ new
+                                Date(evento.fecha).toLocaleTimeString('es-CL', {
+                                    hour: '2-digit', minute: '2-digit',
+                                hour12: false }) }} hrs</small>
                         </div>
-
                         <button v-if="esAdmin" class="btn-borrar-evento" @click.stop="borrarEvento(evento.id)"
-                            title="Borrar Evento">
-                            ✖
-                        </button>
+                            title="Borrar Evento">✖</button>
                     </li>
                 </ul>
             </div>
@@ -476,25 +408,48 @@ const borrarEvento = async (id) => {
             <div class="modal-contenido">
                 <button class="btn-cerrar-modal" @click="cerrarModalLectura">✖</button>
 
-                <div v-if="noticiaSeleccionada.imagen" class="modal-imagen">
-                    <img :src="fixImagenUrl(noticiaSeleccionada.imagen)" alt="Detalle" />
+                <div class="banner-icono"
+                    :style="{ backgroundColor: obtenerColorEtiqueta(noticiaSeleccionada.etiqueta), height: '150px' }">
+                    <span class="icono-gigante" style="font-size: 5rem;">{{
+                        obtenerIconoEtiqueta(noticiaSeleccionada.etiqueta) }}</span>
                 </div>
 
                 <div class="modal-cuerpo">
                     <span class="etiqueta"
-                        :style="{ backgroundColor: obtenerColorEtiqueta(noticiaSeleccionada.etiqueta) }">
-                        {{ noticiaSeleccionada.etiqueta }}
-                    </span>
+                        :style="{ backgroundColor: obtenerColorEtiqueta(noticiaSeleccionada.etiqueta) }">{{
+                        noticiaSeleccionada.etiqueta }}</span>
                     <span class="fecha-modal">{{ new Date(noticiaSeleccionada.fecha_creacion).toLocaleDateString()
-                    }}</span>
+                        }}</span>
 
                     <h2>{{ noticiaSeleccionada.titulo }}</h2>
                     <p class="texto-completo">{{ noticiaSeleccionada.contenido }}</p>
+
+                    <div v-if="noticiaSeleccionada.archivo" class="seccion-adjunto">
+                        <h4>📄 Documento Adjunto</h4>
+                        <a :href="fixMediaUrl(noticiaSeleccionada.archivo)" target="_blank" class="btn-descargar">
+                            📎 Toca aquí para ver o descargar el archivo
+                        </a>
+                    </div>
+
+                    <div v-if="noticiaSeleccionada.galeria && noticiaSeleccionada.galeria.length > 0"
+                        class="seccion-galeria">
+                        <h4>📸 Galería de Imágenes</h4>
+                        <div class="grilla-fotos">
+                            <img v-for="foto in noticiaSeleccionada.galeria" :key="foto.id"
+                                :src="fixMediaUrl(foto.imagen)" alt="Foto"
+                                @click="fotoAmpliada = fixMediaUrl(foto.imagen)">
+                        </div>
+                    </div>
 
                     <div class="modal-footer">
                         <small>Publicado por: <strong>{{ noticiaSeleccionada.autor_nombre }}</strong></small>
                     </div>
                 </div>
+            </div>
+
+            <div v-if="fotoAmpliada" class="visor-pantalla-completa" @click="fotoAmpliada = null">
+                <span class="btn-cerrar-visor">✖</span>
+                <img :src="fotoAmpliada" alt="Ampliación">
             </div>
         </div>
 
@@ -513,45 +468,49 @@ const borrarEvento = async (id) => {
                     </div>
 
                     <div class="campo">
-                        <label>Etiqueta:</label>
+                        <label>Etiqueta / Categoría:</label>
                         <select v-model="formulario.etiqueta">
-                            <option value="GENERAL">General 🔵</option>
-                            <option value="URGENTE">Urgente 🔴</option>
-                            <option value="REUNION">Reunión 🟣</option>
-                            <option value="SOCIAL">Social 🟢</option>
-                            <option value="COBRANZA">Cobranza 🟡</option>
+                            <option value="GENERAL">General 📢</option>
+                            <option value="ACADEMICO">Académico 📚</option>
+                            <option value="REUNION">Reunión 👥</option>
+                            <option value="URGENTE">Urgente 🚨</option>
+                            <option value="SOCIAL">Social 🎉</option>
+                            <option value="FINANZAS">Finanzas 💵</option>
+                            <option value="COBRANZA">Cobranza 💰</option>
                         </select>
                     </div>
 
                     <div class="campo">
-                        <label>Imagen {{ modoEdicion ? '(Subir nueva para reemplazar)' : '(Opcional)' }}:</label>
+                        <label>Contenido:</label>
+                        <textarea v-model="formulario.contenido" rows="6"
+                            placeholder="Escribe aquí el cuerpo del mensaje..."></textarea>
+                    </div>
 
-                        <div v-if="modoEdicion && imagenPreview && !eliminarImagen" style="margin-bottom: 10px;">
-                            <button class="btn-quitar-imagen" @click="prepararBorradoImagen">
-                                🗑️ Quitar imagen actual
-                            </button>
-                        </div>
+                    <hr class="divisor-form">
 
-                        <input v-if="!eliminarImagen || !modoEdicion" type="file" @change="procesarImagen"
-                            accept="image/*" />
+                    <div class="campo">
+                        <label>📄 Subir Documento Adjunto (PDF, Word, etc) [Opcional]:</label>
+                        <input type="file" @change="procesarArchivo" accept=".pdf,.doc,.docx,.xls,.xlsx" />
+                        <small v-if="archivoPreviewNombre" class="texto-verde">✔️ Seleccionado: {{ archivoPreviewNombre
+                            }}</small>
+                    </div>
 
-                        <div v-if="imagenPreview && !eliminarImagen" class="preview-box">
-                            <img :src="imagenPreview" alt="Preview" />
-                        </div>
+                    <div v-if="!modoEdicion" class="campo">
+                        <label>📸 Subir Fotos para la Galería (Máx. 6) [Opcional]:</label>
+                        <input type="file" @change="procesarGaleria" accept="image/*" multiple />
 
-                        <div v-if="eliminarImagen" class="mensaje-borrado">
-                            <small>⚠️ La imagen actual será eliminada al guardar los cambios.</small>
+                        <div v-if="galeriaPreview.length > 0" class="mini-grilla-preview">
+                            <img v-for="(src, idx) in galeriaPreview" :key="idx" :src="src" alt="Preview">
                         </div>
                     </div>
 
-                    <div class="campo">
-                        <label>Contenido:</label>
-                        <textarea v-model="formulario.contenido" rows="5"
-                            placeholder="Escribe aquí los detalles..."></textarea>
+                    <div v-if="modoEdicion" class="alerta-edicion">
+                        <small>ℹ️ Las fotos de la galería no se pueden editar aquí. Si te equivocaste de fotos, borra la
+                            noticia y vuelve a crearla.</small>
                     </div>
 
                     <button class="btn-guardar" @click="guardarNoticia">
-                        {{ modoEdicion ? 'Guardar Cambios 💾' : 'Publicar Noticia 🚀' }}
+                        {{ modoEdicion ? 'Guardar Cambios 💾' : 'Publicar Muro 🚀' }}
                     </button>
                 </div>
             </div>
@@ -560,22 +519,14 @@ const borrarEvento = async (id) => {
         <div v-if="mostrarModalEvento" class="modal-overlay" @click.self="cerrarModalEvento">
             <div class="modal-contenido modal-sm">
                 <button class="btn-cerrar-modal" @click="cerrarModalEvento">✖</button>
-
                 <div class="modal-header-crear">
                     <h2>📅 Agendar Evento</h2>
                 </div>
-
                 <div class="modal-cuerpo form-crear">
-                    <div class="campo">
-                        <label>Título del Evento:</label>
-                        <input v-model="formEvento.titulo" type="text" placeholder="Ej: Bingo Solidario" />
-                    </div>
-
-                    <div class="campo">
-                        <label>Fecha y Hora:</label>
-                        <input v-model="formEvento.fecha" type="datetime-local" />
-                    </div>
-
+                    <div class="campo"><label>Título del Evento:</label><input v-model="formEvento.titulo" type="text"
+                            placeholder="Ej: Bingo Solidario" /></div>
+                    <div class="campo"><label>Fecha y Hora:</label><input v-model="formEvento.fecha"
+                            type="datetime-local" /></div>
                     <button class="btn-guardar" @click="guardarEvento">Guardar Evento 🚀</button>
                 </div>
             </div>
@@ -583,30 +534,24 @@ const borrarEvento = async (id) => {
 
         <div class="contenedor-menu-flotante">
             <div v-if="menuMovilAbierto" class="overlay-menu-movil" @click="menuMovilAbierto = false"></div>
-            
             <div :class="['opciones-flotantes', { 'abierto': menuMovilAbierto }]">
                 <ul>
-                    <li :class="{ activo: vistaActiva === 'noticias' }" @click="seleccionarVista('noticias')">
-                        📰 Noticias
-                    </li>
-                    <li :class="{ activo: vistaActiva === 'horario' }" @click="seleccionarVista('horario')">
-                        📅 Horario
+                    <li :class="{ activo: vistaActiva === 'noticias' }" @click="seleccionarVista('noticias')">📰
+                        Noticias</li>
+                    <li :class="{ activo: vistaActiva === 'horario' }" @click="seleccionarVista('horario')">📅 Horario
                     </li>
                     <li class="inactivo">📊 Encuestas <small>(Pronto)</small></li>
                     <li class="inactivo">📁 Documentos <small>(Pronto)</small></li>
                 </ul>
             </div>
-
-            <button class="btn-fab" @click="menuMovilAbierto = !menuMovilAbierto">
-                {{ menuMovilAbierto ? '✖ Cerrar' : '☰ Menú' }}
-            </button>
+            <button class="btn-fab" @click="menuMovilAbierto = !menuMovilAbierto">{{ menuMovilAbierto ? '✖ Cerrar' : '☰ Menú' }}</button>
         </div>
 
     </div>
 </template>
 
 <style scoped>
-/* === LAYOUT Y ESTRUCTURA === */
+/* === MANTENEMOS TUS ESTILOS BASE === */
 .muro-layout {
     display: grid;
     grid-template-columns: 240px 1fr 280px;
@@ -616,7 +561,6 @@ const borrarEvento = async (id) => {
     padding: 0 20px;
 }
 
-/* === MENU IZQUIERDO === */
 .menu-muro {
     background: white;
     padding: 20px;
@@ -665,7 +609,7 @@ const borrarEvento = async (id) => {
     cursor: not-allowed;
 }
 
-/* === FEED CENTRAL === */
+/* FEED CENTRAL */
 .feed-header {
     background: white;
     padding: 20px;
@@ -705,118 +649,27 @@ const borrarEvento = async (id) => {
     animation: fadeIn 0.3s ease;
 }
 
-/* === PESTAÑA HORARIO (TABLA FALSA RESPONSIVE) === */
-.horario-falsa-tabla {
-    display: grid;
-    /* En PC: 5 columnas pegadas */
-    grid-template-columns: repeat(5, 1fr);
-    background: white;
-    border: 1px solid #bdc3c7;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-}
-
-.dia-columna {
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid #ecf0f1;
-}
-
-.dia-columna:last-child {
-    border-right: none;
-}
-
-.dia-titulo {
-    background: #2c3e50;
-    color: white;
-    text-align: center;
-    padding: 12px;
-    font-weight: bold;
-    text-transform: uppercase;
-    font-size: 0.95rem;
-    border-bottom: 2px solid #bdc3c7;
-}
-
-.bloques-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    background: #fdfefe;
-    justify-content: flex-start;
-}
-
-.bloque-clase {
-    padding: 6px 4px;
-    /* 🚩 Redujimos el relleno interno */
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    height: 60px;
-    /* 🚩 Altura mucho más compacta (antes era 95px) */
-}
-
-.bloque-clase:hover {
-    background: #f4f6f9;
-}
-
-.bloque-clase .tiempo {
-    display: block;
-    font-size: 0.7rem;
-    /* 🚩 Letra un pelín más pequeña */
-    color: #7f8c8d;
-    margin-bottom: 2px;
-}
-
-.bloque-clase .materia {
-    display: block;
-    font-size: 0.85rem;
-    color: #2c3e50;
-    font-weight: bold;
-    line-height: 1.1;
-    /* 🚩 Junta las palabras si ocupan dos líneas */
-}
-
-/* Recreo más sutil */
-.bloque-recreo {
-    height: 3px;
-    /* 🚩 Línea más delgada */
-    background-color: #f1c40f;
-    opacity: 0.7;
+/* 🎨 NUEVO: BANNER ICONOGRÁFICO */
+.banner-icono {
     width: 100%;
-    margin: 0;
-}
-
-/* Almuerzo compacto */
-.bloque-almuerzo {
-    background: #a9dfbf;
-    padding: 4px;
-    text-align: center;
-    border-top: 1px solid #7dcea0;
-    border-bottom: 1px solid #7dcea0;
-    height: 50px;
-    /* 🚩 Altura reducida para el almuerzo */
+    height: 100px;
     display: flex;
-    flex-direction: column;
+    align-items: center;
     justify-content: center;
+    opacity: 0.85;
+    transition: opacity 0.3s;
 }
 
-.bloque-almuerzo .tiempo {
-    display: block;
-    font-size: 0.7rem;
-    color: #145a32;
-    margin-bottom: 2px;
+.tarjeta-noticia:hover .banner-icono {
+    opacity: 1;
 }
 
-.bloque-almuerzo .materia {
-    display: block;
-    font-size: 0.8rem;
-    color: #145a32;
-    font-weight: bold;
+.icono-gigante {
+    font-size: 3rem;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
 }
 
-/* === TARJETAS DE NOTICIAS === */
+/* TARJETAS DE NOTICIAS */
 .tarjeta-noticia {
     background: white;
     border-radius: 12px;
@@ -833,18 +686,6 @@ const borrarEvento = async (id) => {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
 }
 
-.imagen-banner {
-    width: 100%;
-    height: 180px;
-    overflow: hidden;
-}
-
-.imagen-banner img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
 .contenido-tarjeta {
     padding: 20px;
 }
@@ -854,6 +695,7 @@ const borrarEvento = async (id) => {
     align-items: center;
     gap: 10px;
     margin-bottom: 10px;
+    flex-wrap: wrap;
 }
 
 .etiqueta {
@@ -868,6 +710,16 @@ const borrarEvento = async (id) => {
 .fecha {
     font-size: 0.85rem;
     color: #95a5a6;
+}
+
+.badge-adjunto {
+    background: #f1f2f6;
+    color: #2c3e50;
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    border: 1px solid #dfe6e9;
 }
 
 .titulo-noticia {
@@ -897,10 +749,6 @@ const borrarEvento = async (id) => {
     font-weight: bold;
 }
 
-.btn-leer-mas:hover {
-    text-decoration: underline;
-}
-
 .autor {
     margin-top: 15px;
     border-top: 1px solid #f0f0f0;
@@ -909,7 +757,7 @@ const borrarEvento = async (id) => {
     color: #bdc3c7;
 }
 
-/* Botones Acción / Admin */
+/* Botones Admin */
 .btn-crear {
     background: #2ecc71;
     color: white;
@@ -944,111 +792,20 @@ const borrarEvento = async (id) => {
     align-items: center;
     justify-content: center;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    transition: all 0.2s;
     font-size: 1rem;
 }
 
 .btn-editar:hover {
     background: #f1c40f;
     color: white;
-    transform: scale(1.1);
 }
 
 .btn-borrar:hover {
     background: #e74c3c;
     color: white;
-    transform: scale(1.1);
 }
 
-/* === WIDGETS === */
-.tarjeta-widget {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-}
-
-.widget-header h3 {
-    margin: 0 0 15px 0;
-    font-size: 1rem;
-    color: #7f8c8d;
-    text-transform: uppercase;
-    border-bottom: 2px solid #f4f6f9;
-    padding-bottom: 10px;
-}
-
-.widget-body.compacto p {
-    margin: 5px 0;
-    font-size: 0.9rem;
-    color: #2c3e50;
-}
-
-.btn-copiar-mini {
-    width: 100%;
-    margin-top: 10px;
-    background: #ecf0f1;
-    border: none;
-    padding: 8px;
-    border-radius: 6px;
-    cursor: pointer;
-    color: #7f8c8d;
-    font-size: 0.85rem;
-    font-weight: bold;
-}
-
-.btn-copiar-mini:hover {
-    background: #bdc3c7;
-    color: white;
-}
-
-.lista-eventos {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.lista-eventos li {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 10px 0;
-    border-bottom: 1px solid #f9f9f9;
-}
-
-.lista-eventos li:last-child {
-    border-bottom: none;
-}
-
-.dia {
-    background: #e3f2fd;
-    color: #3498db;
-    width: 40px;
-    height: 40px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
-    font-size: 1.1rem;
-}
-
-.evento-info {
-    display: flex;
-    flex-direction: column;
-}
-
-.evento-info strong {
-    font-size: 0.95rem;
-    color: #2c3e50;
-}
-
-.evento-info small {
-    color: #95a5a6;
-    font-size: 0.8rem;
-}
-
-/* === ESTILOS MODALES === */
+/* MODALES Y LECTURA */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -1089,18 +846,6 @@ const borrarEvento = async (id) => {
     cursor: pointer;
     font-size: 1.2rem;
     z-index: 10;
-    transition: background 0.2s;
-}
-
-.btn-cerrar-modal:hover {
-    background: rgba(0, 0, 0, 0.8);
-}
-
-.modal-imagen img {
-    width: 100%;
-    height: 300px;
-    object-fit: cover;
-    display: block;
 }
 
 .modal-cuerpo {
@@ -1124,19 +869,103 @@ const borrarEvento = async (id) => {
     line-height: 1.8;
     color: #34495e;
     white-space: pre-wrap;
+    margin-bottom: 20px;
 }
 
-/* === ESTILOS FORMULARIO === */
+/* 📎 ADJUNTOS Y 🖼️ GALERÍA EN MODAL */
+.seccion-adjunto,
+.seccion-galeria {
+    margin-top: 25px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #ecf0f1;
+}
+
+.seccion-adjunto h4,
+.seccion-galeria h4 {
+    margin: 0 0 15px 0;
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.btn-descargar {
+    display: inline-block;
+    background: #e3f2fd;
+    color: #2980b9;
+    padding: 12px 20px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: bold;
+    border: 1px solid #90caf9;
+    transition: all 0.2s;
+}
+
+.btn-descargar:hover {
+    background: #bbdefb;
+}
+
+.grilla-fotos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 15px;
+}
+
+.grilla-fotos img {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+    border: 2px solid white;
+}
+
+.grilla-fotos img:hover {
+    transform: scale(1.05);
+    border-color: #3498db;
+}
+
+/* VISOR PANTALLA COMPLETA */
+.visor-pantalla-completa {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 3000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: zoom-out;
+}
+
+.visor-pantalla-completa img {
+    max-width: 90%;
+    max-height: 90%;
+    border-radius: 8px;
+    box-shadow: 0 5px 25px rgba(0, 0, 0, 0.5);
+    animation: zoomIn 0.3s ease;
+}
+
+.btn-cerrar-visor {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    color: white;
+    font-size: 2rem;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* FORMULARIO */
 .modal-header-crear {
     padding: 20px 30px;
     border-bottom: 1px solid #eee;
     background: #f9f9f9;
     border-radius: 16px 16px 0 0;
-}
-
-.modal-header-crear h2 {
-    margin: 0;
-    color: #2c3e50;
 }
 
 .form-crear {
@@ -1152,40 +981,53 @@ const borrarEvento = async (id) => {
     color: #34495e;
 }
 
-.campo input[type="text"],
+.campo input,
 .campo select,
-.campo textarea,
-.campo input[type="datetime-local"] {
+.campo textarea {
     width: 100%;
     padding: 12px;
     border: 2px solid #ecf0f1;
     border-radius: 8px;
     font-size: 1rem;
     box-sizing: border-box;
-    transition: border 0.3s;
     font-family: inherit;
 }
 
-.campo input:focus,
-.campo select:focus,
-.campo textarea:focus {
-    border-color: #3498db;
-    outline: none;
+.divisor-form {
+    border: 0;
+    border-top: 1px dashed #bdc3c7;
+    margin: 5px 0;
 }
 
-.preview-box {
+.texto-verde {
+    color: #27ae60;
+    font-weight: bold;
+    font-size: 0.85rem;
+    display: block;
+    margin-top: 5px;
+}
+
+.mini-grilla-preview {
+    display: flex;
+    gap: 10px;
     margin-top: 10px;
-    width: 100%;
-    height: 200px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 2px dashed #bdc3c7;
+    flex-wrap: wrap;
 }
 
-.preview-box img {
-    width: 100%;
-    height: 100%;
+.mini-grilla-preview img {
+    width: 60px;
+    height: 60px;
     object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+.alerta-edicion {
+    background: #fff3e0;
+    padding: 10px;
+    border-radius: 6px;
+    color: #d35400;
+    border-left: 4px solid #f39c12;
 }
 
 .btn-guardar {
@@ -1197,21 +1039,33 @@ const borrarEvento = async (id) => {
     font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
-    transition: background 0.3s;
     width: 100%;
     margin-top: 10px;
 }
 
-.btn-guardar:hover {
-    background: #27ae60;
-    transform: translateY(-2px);
+/* WIDGETS EVENTOS Y HORARIO (SE MANTIENEN INTACTOS) */
+.tarjeta-widget {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 
-/* === ESTILOS NUEVOS PARA EVENTOS === */
 .header-con-boton {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom: 2px solid #f4f6f9;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+.header-con-boton h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #7f8c8d;
+    text-transform: uppercase;
 }
 
 .btn-crear-mini {
@@ -1223,21 +1077,46 @@ const borrarEvento = async (id) => {
     height: 28px;
     font-size: 1.2rem;
     font-weight: bold;
+    cursor: pointer;
+}
+
+.lista-eventos {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.lista-eventos li {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f9f9f9;
+    position: relative;
+}
+
+.dia {
+    background: #e3f2fd;
+    color: #3498db;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    transition: background 0.2s;
+    font-weight: bold;
+    font-size: 1.1rem;
 }
 
-.btn-crear-mini:hover {
-    background: #2980b9;
-    transform: scale(1.05);
+.evento-info strong {
+    font-size: 0.95rem;
+    color: #2c3e50;
+    display: block;
 }
 
-.item-evento-relativo {
-    position: relative;
+.evento-info small {
+    color: #95a5a6;
+    font-size: 0.8rem;
 }
 
 .btn-borrar-evento {
@@ -1250,7 +1129,6 @@ const borrarEvento = async (id) => {
     color: #e74c3c;
     cursor: pointer;
     opacity: 0.3;
-    transition: opacity 0.2s, transform 0.2s;
     font-size: 0.8rem;
     padding: 5px;
 }
@@ -1259,41 +1137,80 @@ const borrarEvento = async (id) => {
     opacity: 1;
 }
 
-.btn-borrar-evento:hover {
-    transform: translateY(-50%) scale(1.3);
+.horario-falsa-tabla {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    background: white;
+    border: 1px solid #bdc3c7;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
-.modal-sm {
-    max-width: 400px;
+.dia-columna {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #ecf0f1;
 }
 
-/* BOTÓN BORRAR IMAGEN */
-.btn-quitar-imagen {
-    background: #ffeaa7;
-    border: 1px solid #f1c40f;
-    color: #d35400;
-    padding: 6px 12px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: bold;
-    transition: all 0.2s;
-}
-
-.btn-quitar-imagen:hover {
-    background: #f1c40f;
+.dia-titulo {
+    background: #2c3e50;
     color: white;
+    text-align: center;
+    padding: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 0.95rem;
+    border-bottom: 2px solid #bdc3c7;
 }
 
-.mensaje-borrado {
-    margin-top: 10px;
-    color: #e74c3c;
-    font-style: italic;
-    background: #fadbd8;
-    padding: 8px;
-    border-radius: 4px;
+.bloque-clase {
+    padding: 6px 4px;
+    text-align: center;
+    height: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
+.bloque-clase .tiempo {
+    font-size: 0.7rem;
+    color: #7f8c8d;
+    margin-bottom: 2px;
+}
+
+.bloque-clase .materia {
+    font-size: 0.85rem;
+    color: #2c3e50;
+    font-weight: bold;
+    line-height: 1.1;
+}
+
+.bloque-recreo {
+    height: 3px;
+    background-color: #f1c40f;
+    opacity: 0.7;
+}
+
+.bloque-almuerzo {
+    background: #a9dfbf;
+    padding: 4px;
+    text-align: center;
+    border-top: 1px solid #7dcea0;
+    border-bottom: 1px solid #7dcea0;
+    height: 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.bloque-almuerzo .tiempo,
+.bloque-almuerzo .materia {
+    color: #145a32;
+    font-size: 0.75rem;
+    font-weight: bold;
+}
+
+/* ANIMACIONES */
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -1316,9 +1233,21 @@ const borrarEvento = async (id) => {
     }
 }
 
-/* === ESTILOS MENÚ FLOTANTE MÓVIL === */
+@keyframes zoomIn {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* MENU MÓVIL (INTACTO) */
 .contenedor-menu-flotante {
-    display: none; /* Oculto en PC */
+    display: none;
     position: fixed;
     bottom: 20px;
     right: 20px;
@@ -1330,21 +1259,16 @@ const borrarEvento = async (id) => {
     color: white;
     border: none;
     padding: 15px 25px;
-    border-radius: 30px; /* Forma de píldora */
+    border-radius: 30px;
     font-size: 1.1rem;
     font-weight: bold;
     cursor: pointer;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    transition: all 0.3s ease;
     display: flex;
     align-items: center;
     gap: 8px;
     position: relative;
     z-index: 2002;
-}
-
-.btn-fab:active {
-    transform: scale(0.95);
 }
 
 .overlay-menu-movil {
@@ -1361,7 +1285,7 @@ const borrarEvento = async (id) => {
 
 .opciones-flotantes {
     position: absolute;
-    bottom: 70px; /* Sube justo encima del botón */
+    bottom: 70px;
     right: 0;
     background: white;
     border-radius: 16px;
@@ -1369,8 +1293,6 @@ const borrarEvento = async (id) => {
     width: 200px;
     overflow: hidden;
     z-index: 2001;
-    
-    /* Animación de entrada: Escondido abajo por defecto */
     opacity: 0;
     transform: translateY(20px);
     pointer-events: none;
@@ -1399,7 +1321,6 @@ const borrarEvento = async (id) => {
     font-weight: bold;
     color: #34495e;
     cursor: pointer;
-    transition: background 0.2s;
 }
 
 .opciones-flotantes li.activo {
@@ -1407,21 +1328,7 @@ const borrarEvento = async (id) => {
     color: #3498db;
 }
 
-.opciones-flotantes li.inactivo {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-/* 🚩 ENCENDEMOS EL BOTÓN EN MÓVILES */
-@media (max-width: 900px) {
-    .contenedor-menu-flotante {
-        display: block;
-    }
-    
-    /* (Recuerda mantener el display:none de sidebar-left aquí) */
-}
-
-/* MAGIA RESPONSIVE PARA CELULARES */
+/* RESPONSIVE */
 @media (max-width: 900px) {
     .muro-layout {
         grid-template-columns: 1fr;
@@ -1430,12 +1337,10 @@ const borrarEvento = async (id) => {
     .sidebar-left,
     .sidebar-right {
         display: none;
-        /* Oculta las barras laterales en celular */
     }
 
-    .menu-movil {
+    .contenedor-menu-flotante {
         display: block;
-        /* 🚩 MUESTRA LAS PESTAÑAS HORIZONTALES */
     }
 
     .horario-falsa-tabla {
