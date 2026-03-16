@@ -20,7 +20,7 @@ onMounted(async () => {
         const resAlumnos = await api.get('mis-alumnos/')
         alumnos.value = resAlumnos.data
 
-        // 3. Seleccionamos el primer alumno por defecto
+        // 3. Seleccionamos el primer alumno por defecto automáticamente
         if (alumnos.value.length > 0) {
             setTimeout(() => {
                 if (alumnosOrdenados.value.length > 0) {
@@ -35,57 +35,49 @@ onMounted(async () => {
     }
 })
 
-// Ordenamiento y Buscador
+// 👇 LA CORRECCIÓN: Ordenamiento por Número de Lista
 const alumnosOrdenados = computed(() => {
-    let listaProcesada = alumnos.value.map(a => {
-        const nombreLimpio = a.nombre_completo.trim()
-        const partes = nombreLimpio.split(' ')
-        let nombreFormateado = nombreLimpio
+    // 1. Clonar la lista para no mutar el original
+    let listaProcesada = [...alumnos.value]
 
-        if (partes.length === 2) {
-            nombreFormateado = `${partes[1]}, ${partes[0]}`
-        } else if (partes.length >= 3) {
-            const apellidos = `${partes[partes.length - 2]} ${partes[partes.length - 1]}`
-            const nombre = partes.slice(0, -2).join(' ')
-            nombreFormateado = `${apellidos}, ${nombre}`
-        }
-        return { ...a, nombre_lista_frontend: nombreFormateado }
+    // 2. Ordenar numéricamente por 'numero_lista'
+    listaProcesada.sort((a, b) => {
+        const numA = a.numero_lista || 999; // Si no tiene número, lo manda al final
+        const numB = b.numero_lista || 999;
+        return numA - numB;
     })
 
-    listaProcesada.sort((a, b) => a.nombre_lista_frontend.localeCompare(b.nombre_lista_frontend))
-
+    // 3. Filtro de búsqueda (si la directiva escribe algo)
     if (busquedaAlumno.value) {
         const termino = busquedaAlumno.value.toLowerCase()
         listaProcesada = listaProcesada.filter(a =>
             a.nombre_completo.toLowerCase().includes(termino) ||
-            a.nombre_lista_frontend.toLowerCase().includes(termino)
+            (a.numero_lista && a.numero_lista.toString() === termino)
         )
     }
+    
     return listaProcesada
 })
 
-// Alumno activo para llenar la zona de datos
+// Alumno activo para llenar las columnas 2 y 3
 const alumnoActivo = computed(() => {
     return alumnos.value.find(a => a.id === alumnoSeleccionadoId.value) || null
 })
 
-// Cálculos matemáticos
+// Cálculos matemáticos de la vista
 const totalTransferencias = computed(() => {
     if (!alumnoActivo.value || !alumnoActivo.value.abonos) return 0
     return alumnoActivo.value.abonos.reduce((sum, abono) => sum + parseFloat(abono.monto || 0), 0)
 })
 
-// 👇 MAGIA NUEVA: Auto-Scroll Inteligente para móviles
+// Auto-Scroll Inteligente para móviles
 const seleccionarAlumno = (id) => {
     alumnoSeleccionadoId.value = id;
-
-    // Le damos un respiro a Vue para que renderice los datos y luego bajamos
+    
     setTimeout(() => {
-        // Solo hacemos auto-scroll si estamos en una pantalla pequeña (celular/tablet)
         if (window.innerWidth <= 900) {
             const zonaDatos = document.getElementById('seccion-datos-alumno');
             if (zonaDatos) {
-                // Calculamos la posición exacta restando unos pixeles para que no quede pegado al borde absoluto
                 const offsetY = zonaDatos.getBoundingClientRect().top + window.scrollY - 10;
                 window.scrollTo({ top: offsetY, behavior: 'smooth' });
             }
@@ -99,7 +91,7 @@ const formatearDinero = (monto) => {
 
 const formatearFecha = (fechaString) => {
     if (!fechaString) return '---'
-    const partes = fechaString.split('-')
+    const partes = fechaString.split('-') 
     if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`
     return fechaString
 }
@@ -133,19 +125,17 @@ const formatearFecha = (fechaString) => {
                     <div class="encabezado-col">
                         <h3>👥 {{ esStaff ? 'Curso (' + alumnosOrdenados.length + ')' : 'Mis Pupilos' }}</h3>
                     </div>
-
+                    
                     <div v-if="esStaff" class="buscador-wrapper">
-                        <input v-model="busquedaAlumno" type="text" placeholder="🔍 Buscar alumno..."
-                            class="input-busqueda" />
+                        <input v-model="busquedaAlumno" type="text" placeholder="🔍 Buscar nombre o n°..." class="input-busqueda" />
                     </div>
 
                     <ul class="lista-nombres">
-                        <li v-for="alumno in alumnosOrdenados" :key="alumno.id" @click="seleccionarAlumno(alumno.id)"
+                        <li v-for="alumno in alumnosOrdenados" :key="alumno.id"
+                            @click="seleccionarAlumno(alumno.id)"
                             :class="{ 'activo': alumnoSeleccionadoId === alumno.id }">
-                            <span class="avatar-letra">{{ alumno.nombre_completo.charAt(0) }}</span>
+                            <span class="avatar-letra">{{ alumno.numero_lista || '#' }}</span>
                             <span class="nombre-lista">
-                                <span v-if="esStaff" style="color:#7f8c8d; font-size: 0.8em; margin-right: 5px;">{{
-                                    alumno.numero_lista }}.</span>
                                 {{ alumno.nombre_completo }}
                             </span>
                         </li>
@@ -153,9 +143,9 @@ const formatearFecha = (fechaString) => {
                 </aside>
 
                 <div class="area-datos" id="seccion-datos-alumno">
-
+                    
                     <div v-if="alumnoActivo" class="header-sticky-alumno">
-                        <div class="avatar-mini">{{ alumnoActivo.nombre_completo.charAt(0) }}</div>
+                        <div class="avatar-mini">{{ alumnoActivo.numero_lista || '#' }}</div>
                         <div class="info-sticky">
                             <small>Viendo finanzas de:</small>
                             <span class="nombre-sticky">{{ alumnoActivo.nombre_completo }}</span>
@@ -163,15 +153,14 @@ const formatearFecha = (fechaString) => {
                     </div>
 
                     <div class="grid-tablas">
-
+                        
                         <section class="columna-datos">
                             <div class="encabezado-col color-transferencias">
                                 <h3>💸 Transferencias Realizadas</h3>
                             </div>
-
+                            
                             <div class="contenedor-tabla" v-if="alumnoActivo">
-                                <table class="tabla-compacta"
-                                    v-if="alumnoActivo.abonos && alumnoActivo.abonos.length > 0">
+                                <table class="tabla-compacta" v-if="alumnoActivo.abonos && alumnoActivo.abonos.length > 0">
                                     <thead>
                                         <tr>
                                             <th>Fecha</th>
@@ -194,8 +183,7 @@ const formatearFecha = (fechaString) => {
 
                             <div class="pie-columna" v-if="alumnoActivo">
                                 <span>Total Transferido:</span>
-                                <strong style="color: #27ae60; font-size: 1.1em;">{{
-                                    formatearDinero(totalTransferencias) }}</strong>
+                                <strong style="color: #27ae60; font-size: 1.1em;">{{ formatearDinero(totalTransferencias) }}</strong>
                             </div>
                         </section>
 
@@ -205,8 +193,7 @@ const formatearFecha = (fechaString) => {
                             </div>
 
                             <div class="contenedor-tabla" v-if="alumnoActivo">
-                                <table class="tabla-compacta"
-                                    v-if="alumnoActivo.cargos && alumnoActivo.cargos.length > 0">
+                                <table class="tabla-compacta" v-if="alumnoActivo.cargos && alumnoActivo.cargos.length > 0">
                                     <thead>
                                         <tr>
                                             <th>Concepto</th>
@@ -218,14 +205,11 @@ const formatearFecha = (fechaString) => {
                                         <tr v-for="cargo in alumnoActivo.cargos" :key="cargo.id">
                                             <td>
                                                 <strong>{{ cargo.concepto_nombre }}</strong><br>
-                                                <span class="texto-menor">{{ formatearDinero(cargo.monto_total)
-                                                    }}</span>
+                                                <span class="texto-menor">{{ formatearDinero(cargo.monto_total) }}</span>
                                             </td>
-                                            <td class="texto-menor">{{ formatearFecha(cargo.fecha_vencimiento ||
-                                                cargo.concepto_fecha_vencimiento) }}</td>
+                                            <td class="texto-menor">{{ formatearFecha(cargo.fecha_vencimiento || cargo.concepto_fecha_vencimiento) }}</td>
                                             <td style="text-align: right;">
-                                                <span class="badge-estado-mini" :class="cargo.estado">{{ cargo.estado
-                                                    }}</span>
+                                                <span class="badge-estado-mini" :class="cargo.estado">{{ cargo.estado }}</span>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -234,10 +218,7 @@ const formatearFecha = (fechaString) => {
                             </div>
                         </section>
 
-                    </div>
-                </div>
-            </div>
-        </div>
+                    </div> </div> </div> </div>
     </div>
 </template>
 
@@ -250,40 +231,20 @@ const formatearFecha = (fechaString) => {
     padding: 20px;
 }
 
-.loading {
-    text-align: center;
-    padding: 50px;
-    font-size: 1.2rem;
-    color: #7f8c8d;
-}
+.loading { text-align: center; padding: 50px; font-size: 1.2rem; color: #7f8c8d; }
+.titulo-pagina { text-align: center; color: #2c3e50; margin-bottom: 25px; font-size: 1.8rem; }
 
-.titulo-pagina {
-    text-align: center;
-    color: #2c3e50;
-    margin-bottom: 25px;
-    font-size: 1.8rem;
-}
-
-/* === TARJETA BANCO (Tu diseño renovado) === */
+/* === TARJETA BANCO === */
 .tarjeta-banco {
     background: #f8fbff;
     border: 1px solid #cce5ff;
     border-radius: 8px;
     padding: 15px 20px;
     margin-bottom: 25px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
 }
-
-.header-banco h3 {
-    margin: 0 0 5px 0;
-    color: #004085;
-}
-
-.header-banco small {
-    color: #666;
-    display: block;
-    margin-bottom: 15px;
-}
+.header-banco h3 { margin: 0 0 5px 0; color: #004085; }
+.header-banco small { color: #666; display: block; margin-bottom: 15px; }
 
 .datos-grid {
     display: grid;
@@ -296,24 +257,9 @@ const formatearFecha = (fechaString) => {
     text-align: center;
 }
 
-.dato-item {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.dato-item small {
-    color: #7f8c8d;
-    font-size: 0.75em;
-    text-transform: uppercase;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-}
-
-.dato-item strong {
-    color: #2c3e50;
-    font-size: 1.05em;
-}
+.dato-item { display: flex; flex-direction: column; gap: 5px; }
+.dato-item small { color: #7f8c8d; font-size: 0.75em; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+.dato-item strong { color: #2c3e50; font-size: 1.05em; }
 
 /* === NUEVO LAYOUT (SIDEBAR + AREA DATOS) === */
 .layout-principal {
@@ -328,90 +274,38 @@ const formatearFecha = (fechaString) => {
     background: white;
     border-radius: 10px;
     border: 1px solid #eaeaea;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.04);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     height: 100%;
 }
 
-.encabezado-col {
-    padding: 12px 15px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #eee;
-}
+.encabezado-col { padding: 12px 15px; background: #f8f9fa; border-bottom: 1px solid #eee; }
+.encabezado-col h3 { margin: 0; font-size: 1.1em; color: #2c3e50; }
 
-.encabezado-col h3 {
-    margin: 0;
-    font-size: 1.1em;
-    color: #2c3e50;
-}
-
-.buscador-wrapper {
-    padding: 10px;
-    border-bottom: 1px solid #f0f0f0;
-}
-
-.input-busqueda {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    box-sizing: border-box;
-    font-size: 0.9em;
-}
+.buscador-wrapper { padding: 10px; border-bottom: 1px solid #f0f0f0; }
+.input-busqueda { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 0.9em; }
 
 .lista-nombres {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    max-height: 450px;
+    list-style: none; padding: 0; margin: 0;
+    max-height: 450px; 
     overflow-y: auto;
 }
-
 .lista-nombres li {
-    padding: 10px 15px;
-    border-bottom: 1px solid #f9f9f9;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: background 0.2s;
+    padding: 10px 15px; border-bottom: 1px solid #f9f9f9; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background 0.2s;
 }
+.lista-nombres li:hover { background: #f0f8ff; }
+.lista-nombres li.activo { background: #e3f2fd; border-left: 4px solid #3498db; }
 
-.lista-nombres li:hover {
-    background: #f0f8ff;
+/* Modificamos el Avatar Letra para que sea un circulito con el Número de Lista */
+.avatar-letra { 
+    background: #bdc3c7; color: white; width: 26px; height: 26px; 
+    border-radius: 50%; display: flex; justify-content: center; align-items: center; 
+    font-size: 0.8rem; font-weight: bold; 
 }
-
-.lista-nombres li.activo {
-    background: #e3f2fd;
-    border-left: 4px solid #3498db;
-}
-
-.avatar-letra {
-    background: #bdc3c7;
-    color: white;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 0.8rem;
-    font-weight: bold;
-}
-
-.lista-nombres li.activo .avatar-letra {
-    background: #3498db;
-}
-
-.nombre-lista {
-    font-size: 0.9em;
-    color: #34495e;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+.lista-nombres li.activo .avatar-letra { background: #3498db; }
+.nombre-lista { font-size: 0.9em; color: #34495e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* === DERECHA: AREA DE DATOS Y STICKY HEADER === */
 .area-datos {
@@ -423,8 +317,7 @@ const formatearFecha = (fechaString) => {
 /* 📌 LA MAGIA STICKY */
 .header-sticky-alumno {
     position: sticky;
-    top: 5px;
-    /* Se pega a 5px del techo al scrollear */
+    top: 5px; 
     z-index: 10;
     background: #2c3e50;
     color: white;
@@ -433,40 +326,16 @@ const formatearFecha = (fechaString) => {
     display: flex;
     align-items: center;
     gap: 15px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .header-sticky-alumno .avatar-mini {
-    background: #3498db;
-    color: white;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 1.1rem;
-    font-weight: bold;
-    border: 2px solid white;
+    background: #3498db; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1.1rem; font-weight: bold; border: 2px solid white;
 }
 
-.info-sticky {
-    display: flex;
-    flex-direction: column;
-}
-
-.info-sticky small {
-    color: #bdc3c7;
-    font-size: 0.75em;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.nombre-sticky {
-    font-size: 1.1em;
-    font-weight: bold;
-    margin-top: 2px;
-}
+.info-sticky { display: flex; flex-direction: column; }
+.info-sticky small { color: #bdc3c7; font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.5px; }
+.nombre-sticky { font-size: 1.1em; font-weight: bold; margin-top: 2px;}
 
 /* === GRILLA INTERNA PARA TABLAS === */
 .grid-tablas {
@@ -476,122 +345,44 @@ const formatearFecha = (fechaString) => {
 }
 
 .columna-datos {
-    background: white;
-    border-radius: 10px;
-    border: 1px solid #eaeaea;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    background: white; border-radius: 10px; border: 1px solid #eaeaea; box-shadow: 0 4px 15px rgba(0,0,0,0.04); display: flex; flex-direction: column; overflow: hidden;
 }
 
-.color-transferencias {
-    border-top: 4px solid #27ae60;
-}
+.color-transferencias { border-top: 4px solid #27ae60; }
+.color-cobros { border-top: 4px solid #f39c12; }
 
-.color-cobros {
-    border-top: 4px solid #f39c12;
-}
+.contenedor-tabla { flex-grow: 1; max-height: 400px; overflow-y: auto; padding: 0; }
 
-.contenedor-tabla {
-    flex-grow: 1;
-    max-height: 400px;
-    overflow-y: auto;
-    padding: 0;
-}
+.tabla-compacta { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+.tabla-compacta th { background: #fafafa; color: #7f8c8d; padding: 8px 12px; text-align: left; font-weight: 600; position: sticky; top: 0; z-index: 1; border-bottom: 2px solid #eee; }
+.tabla-compacta td { padding: 10px 12px; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+.tabla-compacta tr:last-child td { border-bottom: none; }
+.tabla-compacta tr:hover { background-color: #fafafa; }
 
-.tabla-compacta {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85em;
-}
+.texto-menor { font-size: 0.95em; color: #555; }
 
-.tabla-compacta th {
-    background: #fafafa;
-    color: #7f8c8d;
-    padding: 8px 12px;
-    text-align: left;
-    font-weight: 600;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    border-bottom: 2px solid #eee;
-}
+.badge-estado-mini { padding: 3px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; color: white; }
+.badge-estado-mini.PENDIENTE { background: #e74c3c; }
+.badge-estado-mini.PAGADO { background: #2ecc71; }
 
-.tabla-compacta td {
-    padding: 10px 12px;
-    border-bottom: 1px solid #f5f5f5;
-    vertical-align: middle;
-}
+.hint-vacio { text-align: center; color: #95a5a6; padding: 20px; font-style: italic; font-size: 0.9em; }
 
-.tabla-compacta tr:last-child td {
-    border-bottom: none;
-}
+.pie-columna { background: #f8fbff; border-top: 1px solid #eee; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 0.95em; }
 
-.tabla-compacta tr:hover {
-    background-color: #fafafa;
-}
-
-.texto-menor {
-    font-size: 0.95em;
-    color: #555;
-}
-
-.badge-estado-mini {
-    padding: 3px 6px;
-    border-radius: 4px;
-    font-size: 0.75em;
-    font-weight: bold;
-    color: white;
-}
-
-.badge-estado-mini.PENDIENTE {
-    background: #e74c3c;
-}
-
-.badge-estado-mini.PAGADO {
-    background: #2ecc71;
-}
-
-.hint-vacio {
-    text-align: center;
-    color: #95a5a6;
-    padding: 20px;
-    font-style: italic;
-    font-size: 0.9em;
-}
-
-.pie-columna {
-    background: #f8fbff;
-    border-top: 1px solid #eee;
-    padding: 12px 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.95em;
-}
-
-/* === RESPONSIVO (La magia ocurre aquí) === */
+/* === RESPONSIVO === */
 @media (max-width: 900px) {
     .layout-principal {
-        grid-template-columns: 1fr;
-        /* Apila el sidebar y el área de datos */
+        grid-template-columns: 1fr; 
         gap: 15px;
     }
-
     .grid-tablas {
-        grid-template-columns: 1fr;
-        /* Apila las dos tablas una sobre otra */
+        grid-template-columns: 1fr; 
     }
-
-    .lista-nombres {
-        max-height: 250px;
-        /* Acorta la lista en móvil para llegar rápido al contenido */
+    .lista-nombres { 
+        max-height: 250px; 
     }
-
     .header-sticky-alumno {
-        top: 10px;
-        /* Le da un pequeño margen en móviles al hacer scroll */
+        top: 10px; 
     }
 }
 </style>
