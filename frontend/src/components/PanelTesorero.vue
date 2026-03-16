@@ -26,13 +26,16 @@ const nuevoConcepto = ref({
     nombre: '', monto_estandar: '', fecha_vencimiento: new Date().toISOString().split('T')[0], destino: 'CUENTA'
 })
 
-// === 3. GESTIÓN DE PRORRATEO (Repartir Dinero Billetera) ===
+// === 3. GESTIÓN DE PRORRATEO (Repartir Dinero Billetera/Cuenta) ===
 const mostrandoFormProrrateo = ref(false)
 const procesandoProrrateo = ref(false)
 const nuevoProrrateo = ref({
     monto_total: '',
     tipo: 'INGRESO',
-    descripcion: ''
+    descripcion: '',
+    balde: 'CUENTA', // Por defecto ataca el fondo del curso
+    registrar_egreso: false,
+    fecha_gasto: new Date().toISOString().split('T')[0]
 })
 
 // === 4. DEPÓSITO A PLAZO (CONECTADO A LA BD) ===
@@ -252,32 +255,56 @@ const ejecutarCobroMasivo = async () => {
 
 // === FUNCIÓN DE PRORRATEO (BILLETERA) ===
 const ejecutarProrrateo = async () => {
-    if (!nuevoProrrateo.value.monto_total || nuevoProrrateo.value.monto_total <= 0) return alert("Ingresa un monto total válido.")
-    if (!nuevoProrrateo.value.descripcion) return alert("Ingresa una descripción para la cartola.")
-    if (alumnosSeleccionados.value.length === 0) return alert("Selecciona al menos un alumno en la lista.")
+    if (!nuevoProrrateo.value.monto_total || nuevoProrrateo.value.monto_total <= 0) return alert("Ingresa un monto válido.")
+    if (!nuevoProrrateo.value.descripcion) return alert("Ingresa una descripción.")
+    if (alumnosSeleccionados.value.length === 0) return alert("Selecciona alumnos.")
 
     const accion = nuevoProrrateo.value.tipo === 'INGRESO' ? 'sumarán' : 'descontarán'
-    if (!confirm(`¿Estás seguro? Se ${accion} los fondos equitativamente entre los ${alumnosSeleccionados.value.length} alumnos seleccionados.`)) return
+    const destino = nuevoProrrateo.value.balde === 'CUENTA' ? 'al Fondo del Curso (Cuenta)' : 'a los saldos sin asignar (Billeteras)'
+    if (!confirm(`¿Seguro? Se ${accion} los fondos ${destino} de los ${alumnosSeleccionados.value.length} alumnos seleccionados.`)) return
 
     procesandoProrrateo.value = true
     try {
-        const res = await api.post('prorrateo/', {
+        const payload = {
             alumnos_ids: alumnosSeleccionados.value,
             monto_total: nuevoProrrateo.value.monto_total,
             tipo: nuevoProrrateo.value.tipo,
-            descripcion: nuevoProrrateo.value.descripcion
-        })
+            descripcion: nuevoProrrateo.value.descripcion,
+            balde: nuevoProrrateo.value.balde,
+            registrar_egreso: nuevoProrrateo.value.tipo === 'EGRESO' ? nuevoProrrateo.value.registrar_egreso : false,
+            fecha_gasto: nuevoProrrateo.value.fecha_gasto
+        }
+        
+        const res = await api.post('prorrateo/', payload)
         alert(res.data.mensaje + " 🚀")
-        nuevoProrrateo.value = { monto_total: '', tipo: 'INGRESO', descripcion: '' }
+        
+        // Resetear formulario
+        nuevoProrrateo.value = { monto_total: '', tipo: 'INGRESO', descripcion: '', balde: 'CUENTA', registrar_egreso: false, fecha_gasto: new Date().toISOString().split('T')[0] }
         mostrandoFormProrrateo.value = false
+        
         cargarDatosGlobales()
         if (alumnoSeleccionado.value) recargarAlumnoActual()
     } catch (error) {
-        alert(error.response?.data?.error || "Error al procesar el prorrateo.")
+        alert(error.response?.data?.error || "Error al procesar.")
     } finally {
         procesandoProrrateo.value = false
     }
 }
+
+// === CÁLCULO DE LOS 3 BALDES DEL ALUMNO ===
+const baldeBilletera = computed(() => alumnoSeleccionado.value?.cuenta?.saldo_disponible || 0)
+
+const baldeCuenta = computed(() => {
+    if (!alumnoSeleccionado.value) return 0;
+    const ahorroBase = alumnoSeleccionado.value.cuenta?.cuenta_ahorro || 0; // Prorrateos pasados
+    const pagadoCuenta = alumnoSeleccionado.value.cargos?.filter(c => c.estado === 'PAGADO' && c.concepto_destino === 'CUENTA').reduce((sum, c) => sum + c.monto_total, 0) || 0; // Cuotas pagadas
+    return ahorroBase + pagadoCuenta;
+})
+
+const baldeExterno = computed(() => {
+    if (!alumnoSeleccionado.value) return 0;
+    return alumnoSeleccionado.value.cargos?.filter(c => c.estado === 'PAGADO' && c.concepto_destino === 'EXTERNO').reduce((sum, c) => sum + c.monto_total, 0) || 0; // Pagos a terceros
+})
 
 // === FUNCIONES DE LA BILLETERA ===
 const guardarAbono = async () => {
@@ -405,68 +432,47 @@ const procesarPagoConBilletera = async () => {
                     <div class="grupo-inputs-cobro">
                         <div class="campo">
                             <label>Monto Total a Repartir ($):</label>
-                            <input type="number" v-model="nuevoProrrateo.monto_total" placeholder="Ej: 200000" />
+                            <input type="number" v-model="nuevoProrrateo.monto_total" placeholder="Ej: 20000" />
                         </div>
                         <div class="campo">
                             <label>Tipo de Movimiento:</label>
                             <select v-model="nuevoProrrateo.tipo">
-                                <option value="INGRESO">Ganancia (Ingreso a Billetera)</option>
-                                <option value="EGRESO">Gasto (Descuento de Billetera)</option>
+                                <option value="INGRESO">Ganancia (+)</option>
+                                <option value="EGRESO">Gasto (-)</option>
+                            </select>
+                        </div>
+                        <div class="campo">
+                            <label>¿A qué fondo afecta?</label>
+                            <select v-model="nuevoProrrateo.balde">
+                                <option value="CUENTA">Fondo del Curso (Patrimonio)</option>
+                                <option value="BILLETERA">Billeteras (Saldos sin asignar)</option>
                             </select>
                         </div>
                     </div>
                     <div class="campo" style="margin-top: 10px;">
                         <label>Descripción para la cartola:</label>
-                        <input type="text" v-model="nuevoProrrateo.descripcion"
-                            placeholder="Ej: Ganancia Rifa Día de la Madre" />
+                        <input type="text" v-model="nuevoProrrateo.descripcion" placeholder="Ej: Regalo Día del Profesor" />
                     </div>
 
-                    <button @click="ejecutarProrrateo" class="btn-masivo btn-prorratear"
-                        :disabled="procesandoProrrateo || alumnosSeleccionados.length === 0"
-                        style="margin-top: 15px; width: 100%;">
-                        {{ procesandoProrrateo ? 'Calculando...' : '🪄 Repartir entre los seleccionados' }}
+                    <div v-if="nuevoProrrateo.tipo === 'EGRESO'" style="margin-top: 15px; padding: 10px; background: #ffebee; border-left: 4px solid #c62828; border-radius: 4px;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #c62828; font-weight: bold; font-size: 0.9em;">
+                            <input type="checkbox" v-model="nuevoProrrateo.registrar_egreso" style="width: 18px; height: 18px;" />
+                            ¿Registrar automáticamente la salida del dinero del Banco Real?
+                        </label>
+                        <div v-if="nuevoProrrateo.registrar_egreso" style="margin-top: 10px; display: flex; gap: 10px;">
+                            <div class="campo" style="flex: 1;">
+                                <label>Fecha de la salida real:</label>
+                                <input type="date" v-model="nuevoProrrateo.fecha_gasto" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <button @click="ejecutarProrrateo" class="btn-masivo btn-prorratear" :disabled="procesandoProrrateo || alumnosSeleccionados.length === 0" style="margin-top: 15px; width: 100%;">
+                        {{ procesandoProrrateo ? 'Calculando...' : '🧮 Aplicar Cálculo a Alumnos' }}
                     </button>
                     <p style="font-size: 0.8em; color: #7f8c8d; margin-top: 10px; text-align: center;">
-                        Divide el monto y lo inyecta a las billeteras de los alumnos marcados abajo.
+                        El monto se dividirá entre los alumnos marcados abajo.
                     </p>
-                </div>
-            </div>
-
-            <div class="panel-masivo" style="background-color: #ffebee; border-color: #ffcdd2;">
-                <div class="header-masivo">
-                    <h3 style="color: #c62828;">🔴 Registrar Salida de Dinero (Banco)</h3>
-                    <button @click="mostrandoFormGasto = !mostrandoFormGasto" class="btn-toggle-cobro"
-                        style="border-color:#c62828; color:#c62828;">
-                        {{ mostrandoFormGasto ? '❌ Cerrar' : '📤 Registrar Gasto' }}
-                    </button>
-                </div>
-
-                <div v-if="mostrandoFormGasto" class="form-crear-cobro" style="border-color: #e53935;">
-                    <p style="font-size: 0.85em; color: #c62828; margin-top:0;">* Utiliza esto cuando saques dinero del
-                        banco real para pagar a proveedores, rifas, etc.</p>
-                    <div class="grupo-inputs-cobro">
-                        <div class="campo">
-                            <label>Monto ($):</label>
-                            <input type="number" v-model="nuevoGasto.monto" placeholder="Ej: 50000" />
-                        </div>
-                        <div class="campo">
-                            <label>Motivo / Descripción:</label>
-                            <input type="text" v-model="nuevoGasto.descripcion" placeholder="Ej: Pago arriendo bus" />
-                        </div>
-                        <div class="campo">
-                            <label>Fecha de Pago:</label>
-                            <input type="date" v-model="nuevoGasto.fecha_gasto" />
-                        </div>
-                        <div class="campo">
-                            <label>Comprobante/Ref:</label>
-                            <input type="text" v-model="nuevoGasto.comprobante"
-                                placeholder="N° Boleta / Transferencia" />
-                        </div>
-                    </div>
-                    <button @click="registrarGasto" class="btn-guardar-cobro"
-                        style="background-color: #e53935; margin-top: 15px; width: 100%;">
-                        Registrar Egreso Definitivo
-                    </button>
                 </div>
             </div>
 
@@ -636,9 +642,21 @@ const procesarPagoConBilletera = async () => {
                         </button>
                     </div>
 
-                    <div class="tarjeta-billetera">
-                        <small>Saldo Disponible</small>
-                        <h2>{{ formatearDinero(alumnoSeleccionado.cuenta?.saldo_disponible) }}</h2>
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                        <div class="tarjeta-billetera" style="margin-bottom: 0;">
+                            <small>👛 Balde 1: Billetera (Sin asignar)</small>
+                            <h2>{{ formatearDinero(baldeBilletera) }}</h2>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div style="background: #27ae60; color: white; padding: 10px; border-radius: 8px; text-align: center;">
+                                <small style="font-size: 0.7em; text-transform: uppercase;">📁 Balde 2: Cuenta</small><br>
+                                <strong style="font-size: 1.2em;">{{ formatearDinero(baldeCuenta) }}</strong>
+                            </div>
+                            <div style="background: #f39c12; color: white; padding: 10px; border-radius: 8px; text-align: center;">
+                                <small style="font-size: 0.7em; text-transform: uppercase;">🎟️ Balde 3: Externos</small><br>
+                                <strong style="font-size: 1.2em;">{{ formatearDinero(baldeExterno) }}</strong>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="info-apoderado">

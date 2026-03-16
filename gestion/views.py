@@ -355,12 +355,17 @@ def resumen_tesoreria(request):
 def prorratear_monto(request):
     """
     Divide ganancias o gastos globales equitativamente entre los alumnos elegidos.
-    Body esperado: { "alumnos_ids": [1, 2, 3], "monto_total": 200000, "tipo": "INGRESO", "descripcion": "Rifa de Navidad" }
+    Ahora soporta elegir el 'Balde' (Billetera o Cuenta) y auto-registrar egresos.
     """
     alumnos_ids = request.data.get('alumnos_ids', [])
     monto_total = int(request.data.get('monto_total', 0))
     tipo = request.data.get('tipo', 'INGRESO')
     descripcion = request.data.get('descripcion', 'Repartición general')
+    
+    # 👇 NUEVO: Parámetros del nuevo diseño
+    balde = request.data.get('balde', 'BILLETERA') # Puede ser 'BILLETERA' o 'CUENTA'
+    registrar_egreso = request.data.get('registrar_egreso', False)
+    fecha_gasto = request.data.get('fecha_gasto', None)
 
     if not alumnos_ids or monto_total <= 0:
         return Response({"error": "Debes seleccionar alumnos y un monto válido."}, status=status.HTTP_400_BAD_REQUEST)
@@ -374,21 +379,39 @@ def prorratear_monto(request):
     for i, cuenta in enumerate(cuentas):
         monto_aplicar = monto_individual + (1 if i < sobrante else 0)
 
-        if tipo == 'INGRESO':
-            cuenta.saldo_disponible += monto_aplicar
-        else:
-            cuenta.saldo_disponible -= monto_aplicar
+        # 👇 NUEVO: Lógica de los Baldes
+        if balde == 'BILLETERA':
+            if tipo == 'INGRESO':
+                cuenta.saldo_disponible += monto_aplicar
+            else:
+                cuenta.saldo_disponible -= monto_aplicar
+        elif balde == 'CUENTA':
+            # Usamos cuenta_ahorro como el pozo base del Fondo del Curso
+            if tipo == 'INGRESO':
+                cuenta.cuenta_ahorro += monto_aplicar
+            else:
+                cuenta.cuenta_ahorro -= monto_aplicar
 
         cuenta.save()
 
+        # Guardamos el movimiento en la cartola indicando de qué balde salió
         MovimientoCuenta.objects.create(
             cuenta=cuenta,
             tipo=tipo,
             monto=monto_aplicar,
-            descripcion=f"{descripcion} (Total: ${monto_total} dividido en {cantidad} alumnos)"
+            descripcion=f"[{balde}] {descripcion} (Total: ${monto_total} / {cantidad} alum.)"
         )
 
-    return Response({"mensaje": f"¡Éxito! Se aplicaron ${monto_individual} a la cuenta de {cantidad} alumnos."})
+    # 👇 NUEVO: Si es un Gasto y pidieron auto-registrar en el banco, lo creamos
+    if tipo == 'EGRESO' and registrar_egreso:
+        from django.utils import timezone
+        EgresoTesoreria.objects.create(
+            monto=monto_total,
+            descripcion=f"Gasto Prorrateado: {descripcion}",
+            fecha_gasto=fecha_gasto if fecha_gasto else timezone.now().date()
+        )
+
+    return Response({"mensaje": f"¡Éxito! Se aplicaron ${monto_individual} a la {balde.lower()} de {cantidad} alumnos."})
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
