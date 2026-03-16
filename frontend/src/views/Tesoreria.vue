@@ -35,8 +35,7 @@ const cargarTodo = async () => {
 
 onMounted(() => { cargarTodo() })
 
-// === MATEMÁTICAS EXACTAS DE LOS 3 BALDES ===
-
+// === CÁLCULOS EXACTOS (EL BANCO NO MIENTE) ===
 const calcularRecaudacionConcepto = (conceptoId) => {
     let total = 0
     alumnos.value.forEach(al => {
@@ -48,48 +47,76 @@ const calcularRecaudacionConcepto = (conceptoId) => {
     return total
 }
 
-// 🪣 BALDE 1: Billeteras (Sin asignar)
+// Baldes Vivos (Para cuadrar la caja)
 const totalBalde1 = computed(() => alumnos.value.reduce((sum, al) => sum + (al.cuenta?.saldo_disponible || 0), 0))
-const alumnosConBilletera = computed(() => alumnos.value.filter(al => (al.cuenta?.saldo_disponible || 0) > 0))
-
-// 🪣 BALDE 2: Fondo del Curso (Cuenta)
-const conceptosCuenta = computed(() => conceptos.value.filter(c => c.destino === 'CUENTA'))
 const totalAhorroBase = computed(() => alumnos.value.reduce((sum, al) => sum + (al.cuenta?.cuenta_ahorro || 0), 0))
-const totalBalde2 = computed(() => {
-    const recaudadoCuotas = conceptosCuenta.value.reduce((sum, c) => sum + calcularRecaudacionConcepto(c.id), 0)
-    return recaudadoCuotas + totalAhorroBase.value
-})
-
-// 🪣 BALDE 3: Externos (Vivos y Rendidos)
+const conceptosCuenta = computed(() => conceptos.value.filter(c => c.destino === 'CUENTA'))
+const totalBalde2 = computed(() => conceptosCuenta.value.reduce((sum, c) => sum + calcularRecaudacionConcepto(c.id), 0) + totalAhorroBase.value)
 const conceptosExternosVivos = computed(() => conceptos.value.filter(c => c.destino === 'EXTERNO' && c.estado_fondo !== 'RENDIDO'))
-const conceptosExternosRendidos = computed(() => conceptos.value.filter(c => c.destino === 'EXTERNO' && c.estado_fondo === 'RENDIDO'))
-
 const totalBalde3Vivos = computed(() => conceptosExternosVivos.value.reduce((sum, c) => sum + calcularRecaudacionConcepto(c.id), 0))
 
-// 🏦 BANCO REAL (La suma exacta de los fondos vivos)
+// 🏦 BANCO REAL SOBERANO
 const saldoBancoReal = computed(() => totalBalde1.value + totalBalde2.value + totalBalde3Vivos.value)
 
-// === AGRUPACIÓN DE PRORRATEOS ===
+
+// === AGRUPACIÓN AVANZADA DE PRORRATEOS Y SUS ALUMNOS ===
 const prorrateos = computed(() => {
     const grupos = {}
     movimientosRaw.value.forEach(mov => {
         if (!mov.fecha || !mov.descripcion) return
+        // Filtramos solo los que son prorrateos reales (llevan el Total en la descripción)
+        if (!mov.descripcion.includes('(Total: $')) return
+
         const fechaCorta = mov.fecha.split('T')[0]
-        const key = `${fechaCorta}_${mov.descripcion}_${mov.tipo}`
-        if (!grupos[key]) {
-            grupos[key] = { id: key, fecha: fechaCorta, descripcion: mov.descripcion, tipo: mov.tipo, monto_total: 0, alumnos_count: 0 }
+
+        // Extraemos a qué balde afectó y limpiamos la descripción
+        let balde = 'BILLETERA'
+        let descLimpia = mov.descripcion
+        if (mov.descripcion.startsWith('[CUENTA] ')) {
+            balde = 'CUENTA'
+            descLimpia = mov.descripcion.replace('[CUENTA] ', '')
+        } else if (mov.descripcion.startsWith('[BILLETERA] ')) {
+            balde = 'BILLETERA'
+            descLimpia = mov.descripcion.replace('[BILLETERA] ', '')
         }
+
+        const baseDesc = descLimpia.split(' (Total: $')[0]
+        const key = `${fechaCorta}_${baseDesc}_${mov.tipo}_${balde}`
+
+        if (!grupos[key]) {
+            grupos[key] = {
+                id: key, fecha: fechaCorta, descripcion: baseDesc, tipo: mov.tipo, balde: balde, monto_total: 0, alumnos: []
+            }
+        }
+
+        const alumnoMatch = alumnos.value.find(a => a.cuenta && a.cuenta.id === mov.cuenta)
         grupos[key].monto_total += parseFloat(mov.monto)
-        grupos[key].alumnos_count += 1
+
+        if (alumnoMatch) {
+            grupos[key].alumnos.push({ alumno: alumnoMatch, monto: parseFloat(mov.monto) })
+        }
     })
-    return Object.values(grupos).filter(g => g.alumnos_count > 1).sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+
+    // Ordenamos por fecha, y los alumnos por número de lista
+    return Object.values(grupos).map(g => {
+        g.alumnos.sort((a, b) => a.alumno.numero_lista - b.alumno.numero_lista)
+        return g
+    }).sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
 })
 
+// === FILTROS PARA LAS 4 SUBSECCIONES DE INGRESO ===
+const alumnosConBilletera = computed(() => alumnos.value.filter(al => (al.cuenta?.saldo_disponible || 0) > 0))
+const conceptosExternosTodos = computed(() => conceptos.value.filter(c => c.destino === 'EXTERNO'))
 const prorrateosIngreso = computed(() => prorrateos.value.filter(p => p.tipo === 'INGRESO'))
-const prorrateosEgreso = computed(() => prorrateos.value.filter(p => p.tipo === 'EGRESO'))
 
+// === FILTROS PARA LAS SUBSECCIONES DE EGRESO ===
+const conceptosExternosRendidos = computed(() => conceptos.value.filter(c => c.destino === 'EXTERNO' && c.estado_fondo === 'RENDIDO'))
+const prorrateosEgresoCuenta = computed(() => prorrateos.value.filter(p => p.tipo === 'EGRESO' && p.balde === 'CUENTA'))
+const prorrateosEgresoBilletera = computed(() => prorrateos.value.filter(p => p.tipo === 'EGRESO' && p.balde === 'BILLETERA'))
+
+
+// Utilidades
 const formatearDinero = (valor) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(valor || 0)
-
 const montoPagadoPorAlumno = (alumno, conceptoId) => {
     if (!alumno.cargos) return 0
     const cargo = alumno.cargos.find(c => c.concepto === conceptoId && c.estado === 'PAGADO')
@@ -99,10 +126,9 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
 
 <template>
     <div class="dashboard-contenedor">
-
         <div class="header-titulos">
-            <h1 class="titulo-main">📊 Auditoría General del Curso</h1>
-            <p class="subtitulo">Transparencia financiera en tiempo real.</p>
+            <h1 class="titulo-main">📊 Auditoría Financiera Detallada</h1>
+            <p class="subtitulo">Trazabilidad absoluta de cada peso del curso.</p>
         </div>
 
         <div v-if="cargando" class="loading">Auditando bóvedas... 🏦</div>
@@ -112,9 +138,9 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
                 <div class="tarjeta-banco">
                     <div class="icono-banco">🏛️</div>
                     <div class="info-banco">
-                        <span>SALDO FÍSICO EN BANCO</span>
+                        <span>SALDO EXACTO EN BANCO</span>
                         <h2>{{ formatearDinero(saldoBancoReal) }}</h2>
-                        <small>Suma exacta de Billeteras + Cuenta + Externos sin rendir.</small>
+                        <small>Dinero físico disponible hoy.</small>
                     </div>
                 </div>
                 <div v-if="deposito.monto > 0" class="tarjeta-deposito">
@@ -122,21 +148,19 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
                     <div class="info-banco">
                         <span>DEPÓSITO A PLAZO</span>
                         <h2>{{ formatearDinero(deposito.monto) }}</h2>
-                        <small>Fondo de ahorro protegido (Aparte).</small>
+                        <small>Fondo de ahorro protegido.</small>
                     </div>
                 </div>
             </div>
 
             <div class="auditoria-grid">
-
                 <div class="columna columna-ingresos">
                     <div class="header-seccion verde">
-                        <h2>🟢 FONDOS Y PATRIMONIO</h2>
-                        <h3>{{ formatearDinero(saldoBancoReal) }}</h3>
+                        <h2>🟢 HISTORIAL DE INGRESOS</h2>
                     </div>
 
                     <div class="categoria-bloque">
-                        <h4 class="titulo-cat">📁 Fondo del Curso (Cuenta)</h4>
+                        <h4 class="titulo-cat">📁 1. Cuotas (Fondo del Curso)</h4>
                         <details class="acordeon-excel" v-for="concepto in conceptosCuenta" :key="concepto.id">
                             <summary class="fila-resumen">
                                 <span>{{ concepto.nombre }}</span>
@@ -157,17 +181,36 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
                                 </table>
                             </div>
                         </details>
-                        <div class="fila-resumen flotante" style="margin-top: 5px;"
-                            title="Es la suma de los premios ganados menos los gastos compartidos.">
-                            <span>Ajustes y Prorrateos Históricos</span>
-                            <strong :class="totalAhorroBase >= 0 ? 'texto-verde' : 'texto-rojo'">{{
-                                formatearDinero(totalAhorroBase) }}</strong>
-                        </div>
+                        <div v-if="conceptosCuenta.length === 0" class="hint">No hay cuotas registradas.</div>
                     </div>
 
                     <div class="categoria-bloque">
-                        <h4 class="titulo-cat">🎟️ Fondos Externos (En Recaudación)</h4>
-                        <details class="acordeon-excel" v-for="concepto in conceptosExternosVivos" :key="concepto.id">
+                        <h4 class="titulo-cat">📈 2. Ingresos Compartidos (Premios)</h4>
+                        <details class="acordeon-excel" v-for="pro in prorrateosIngreso" :key="pro.id">
+                            <summary class="fila-resumen">
+                                <span>{{ pro.descripcion }} <small style="color:#7f8c8d; font-size:0.8em;">(A {{
+                                    pro.balde === 'CUENTA' ? 'Cuenta' : 'Billetera' }})</small></span>
+                                <strong class="texto-verde">+{{ formatearDinero(pro.monto_total) }}</strong>
+                            </summary>
+                            <div class="detalle-excel">
+                                <table>
+                                    <tbody>
+                                        <tr v-for="al in pro.alumnos" :key="al.alumno.id">
+                                            <td>{{ al.alumno.numero_lista }}. {{ al.alumno.nombre_completo }}</td>
+                                            <td style="text-align: right; font-weight: bold;" class="texto-verde">
+                                                +{{ formatearDinero(al.monto) }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+                        <div v-if="prorrateosIngreso.length === 0" class="hint">No hay ingresos compartidos.</div>
+                    </div>
+
+                    <div class="categoria-bloque">
+                        <h4 class="titulo-cat">🎟️ 3. Aportes a Externos (Histórico)</h4>
+                        <details class="acordeon-excel" v-for="concepto in conceptosExternosTodos" :key="concepto.id">
                             <summary class="fila-resumen">
                                 <span>{{ concepto.nombre }}</span>
                                 <strong class="texto-verde">{{ formatearDinero(calcularRecaudacionConcepto(concepto.id))
@@ -187,15 +230,14 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
                                 </table>
                             </div>
                         </details>
-                        <div v-if="conceptosExternosVivos.length === 0" class="hint">No hay fondos externos
-                            recaudándose.</div>
+                        <div v-if="conceptosExternosTodos.length === 0" class="hint">No hay cobros externos.</div>
                     </div>
 
-                    <div class="categoria-bloque">
-                        <h4 class="titulo-cat">👛 Billeteras (Saldos sin asignar)</h4>
+                    <div class="categoria-bloque" style="border-bottom: none;">
+                        <h4 class="titulo-cat">👛 4. Billeteras (Saldos sin Asignar)</h4>
                         <details class="acordeon-excel">
                             <summary class="fila-resumen flotante">
-                                <span>Saldos a favor disponibles</span>
+                                <span>Saldos a favor actuales</span>
                                 <strong class="texto-verde">{{ formatearDinero(totalBalde1) }}</strong>
                             </summary>
                             <div class="detalle-excel">
@@ -214,31 +256,92 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
                             </div>
                         </details>
                     </div>
-
-                    <div class="separador-prorrateo verde">
-                        <h4>📈 INGRESOS COMPARTIDOS</h4>
-                        <small>Premios o ganancias que ya se sumaron a las Billeteras o la Cuenta.</small>
-                    </div>
-                    <div class="lista-gastos">
-                        <div v-for="pro in prorrateosIngreso" :key="pro.id" class="item-gasto">
-                            <div class="gasto-info">
-                                <strong>{{ pro.descripcion }}</strong>
-                                <small>📅 {{ pro.fecha }} | 👥 Repartido a {{ pro.alumnos_count }} alum.</small>
-                            </div>
-                            <strong class="texto-verde">+{{ formatearDinero(pro.monto_total) }}</strong>
-                        </div>
-                        <div v-if="prorrateosIngreso.length === 0" class="hint"
-                            style="text-align:center; padding: 20px;">Sin ingresos extra registrados.</div>
-                    </div>
                 </div>
 
                 <div class="columna columna-egresos">
                     <div class="header-seccion rojo">
-                        <h2>🔴 SALIDAS Y RENDICIONES</h2>
+                        <h2>🔴 HISTORIAL DE SALIDAS</h2>
                     </div>
 
                     <div class="categoria-bloque">
-                        <h4 class="titulo-cat rojo">📉 Libro Oficial de Egresos</h4>
+                        <h4 class="titulo-cat rojo">📤 1. Externos ya Transferidos</h4>
+                        <details class="acordeon-excel" v-for="concepto in conceptosExternosRendidos"
+                            :key="concepto.id">
+                            <summary class="fila-resumen" style="background: #fdfdfd;">
+                                <span style="color: #7f8c8d; text-decoration: line-through;">{{ concepto.nombre
+                                    }}</span>
+                                <strong class="texto-rojo">-{{ formatearDinero(calcularRecaudacionConcepto(concepto.id))
+                                    }}</strong>
+                            </summary>
+                            <div class="detalle-excel">
+                                <table>
+                                    <tbody>
+                                        <tr v-for="al in alumnos" :key="al.id">
+                                            <td>{{ al.numero_lista }}. {{ al.nombre_completo }}</td>
+                                            <td style="text-align: right; font-weight: bold;"
+                                                :class="montoPagadoPorAlumno(al, concepto.id) > 0 ? 'texto-rojo' : 'texto-gris'">
+                                                {{ montoPagadoPorAlumno(al, concepto.id) > 0 ? '-' : '' }}{{
+                                                formatearDinero(montoPagadoPorAlumno(al, concepto.id)) }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+                        <div v-if="conceptosExternosRendidos.length === 0" class="hint">No hay transferencias a
+                            externos.</div>
+                    </div>
+
+                    <div class="categoria-bloque">
+                        <h4 class="titulo-cat rojo">📉 2. Gastos Compartidos (Desde Cuenta)</h4>
+                        <details class="acordeon-excel" v-for="pro in prorrateosEgresoCuenta" :key="pro.id">
+                            <summary class="fila-resumen">
+                                <span>{{ pro.descripcion }}</span>
+                                <strong class="texto-rojo">-{{ formatearDinero(pro.monto_total) }}</strong>
+                            </summary>
+                            <div class="detalle-excel">
+                                <table>
+                                    <tbody>
+                                        <tr v-for="al in pro.alumnos" :key="al.alumno.id">
+                                            <td>{{ al.alumno.numero_lista }}. {{ al.alumno.nombre_completo }}</td>
+                                            <td style="text-align: right; font-weight: bold;" class="texto-rojo">
+                                                -{{ formatearDinero(al.monto) }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+                        <div v-if="prorrateosEgresoCuenta.length === 0" class="hint">No hay gastos en la cuenta del
+                            curso.</div>
+                    </div>
+
+                    <div class="categoria-bloque">
+                        <h4 class="titulo-cat rojo">💸 3. Gastos Directos (Desde Billeteras)</h4>
+                        <details class="acordeon-excel" v-for="pro in prorrateosEgresoBilletera" :key="pro.id">
+                            <summary class="fila-resumen">
+                                <span>{{ pro.descripcion }}</span>
+                                <strong class="texto-rojo">-{{ formatearDinero(pro.monto_total) }}</strong>
+                            </summary>
+                            <div class="detalle-excel">
+                                <table>
+                                    <tbody>
+                                        <tr v-for="al in pro.alumnos" :key="al.alumno.id">
+                                            <td>{{ al.alumno.numero_lista }}. {{ al.alumno.nombre_completo }}</td>
+                                            <td style="text-align: right; font-weight: bold;" class="texto-rojo">
+                                                -{{ formatearDinero(al.monto) }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+                        <div v-if="prorrateosEgresoBilletera.length === 0" class="hint">No hay descuentos a billeteras.
+                        </div>
+                    </div>
+
+                    <div class="categoria-bloque" style="border-bottom: none;">
+                        <h4 class="titulo-cat rojo">📕 4. Libro Oficial Egresos (Manual)</h4>
                         <div class="lista-gastos">
                             <div v-for="gasto in egresos" :key="gasto.id" class="item-gasto">
                                 <div class="gasto-info">
@@ -247,46 +350,8 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
                                 </div>
                                 <strong class="texto-rojo">-{{ formatearDinero(gasto.monto) }}</strong>
                             </div>
-                            <div v-if="egresos.length === 0" class="hint" style="text-align:center; padding: 20px;">
-                                No hay salidas de dinero en el banco real.
-                            </div>
+                            <div v-if="egresos.length === 0" class="hint">Sin salidas manuales registradas.</div>
                         </div>
-                    </div>
-
-                    <div class="categoria-bloque">
-                        <h4 class="titulo-cat rojo">📤 Externos ya Transferidos</h4>
-                        <div class="lista-gastos">
-                            <div v-for="concepto in conceptosExternosRendidos" :key="concepto.id" class="item-gasto"
-                                style="background: #fdfdfd;">
-                                <div class="gasto-info">
-                                    <strong style="color: #7f8c8d; text-decoration: line-through;">{{ concepto.nombre
-                                        }}</strong>
-                                    <small>Monto recaudado de los apoderados</small>
-                                </div>
-                                <strong class="texto-gris">{{ formatearDinero(calcularRecaudacionConcepto(concepto.id))
-                                    }}</strong>
-                            </div>
-                            <div v-if="conceptosExternosRendidos.length === 0" class="hint"
-                                style="text-align:center; padding: 20px;">
-                                No hay fondos externos rendidos históricamente.
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="separador-prorrateo rojo">
-                        <h4>📉 GASTOS COMPARTIDOS</h4>
-                        <small>Gastos (Regalos, eventos) que ya se descontaron de los alumnos.</small>
-                    </div>
-                    <div class="lista-gastos">
-                        <div v-for="pro in prorrateosEgreso" :key="pro.id" class="item-gasto">
-                            <div class="gasto-info">
-                                <strong>{{ pro.descripcion }}</strong>
-                                <small>📅 {{ pro.fecha }} | 👥 Dividido en {{ pro.alumnos_count }} alum.</small>
-                            </div>
-                            <strong class="texto-rojo">-{{ formatearDinero(pro.monto_total) }}</strong>
-                        </div>
-                        <div v-if="prorrateosEgreso.length === 0" class="hint"
-                            style="text-align:center; padding: 20px;">Sin gastos compartidos registrados.</div>
                     </div>
                 </div>
 
@@ -296,6 +361,7 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
 </template>
 
 <style scoped>
+/* ESTILOS EXACTOS SIN ALTERAR */
 .dashboard-contenedor {
     max-width: 1400px;
     margin: 0 auto;
@@ -421,11 +487,6 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
     letter-spacing: 1px;
 }
 
-.header-seccion h3 {
-    margin: 0;
-    font-size: 1.5rem;
-}
-
 .verde {
     background: linear-gradient(135deg, #27ae60, #2ecc71);
 }
@@ -503,30 +564,7 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
     background: #fdfae3;
 }
 
-/* LISTAS Y SEPARADORES */
-.separador-prorrateo {
-    padding: 15px 20px;
-    text-align: center;
-    color: white;
-}
-
-.separador-prorrateo h4 {
-    margin: 0;
-    font-size: 1rem;
-}
-
-.separador-prorrateo small {
-    opacity: 0.9;
-}
-
-.separador-prorrateo.verde {
-    background: #78c292;
-}
-
-.separador-prorrateo.rojo {
-    background: #e08b84;
-}
-
+/* LISTAS Y UTILIDADES */
 .lista-gastos {
     max-height: 400px;
     overflow-y: auto;
@@ -536,13 +574,11 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 20px;
+    padding: 10px 15px;
     border-bottom: 1px solid #eee;
-    transition: background 0.2s;
-}
-
-.item-gasto:hover {
-    background: #fffafa;
+    background: #fdfdfd;
+    border-radius: 6px;
+    margin-bottom: 5px;
 }
 
 .gasto-info {
@@ -556,7 +592,6 @@ const montoPagadoPorAlumno = (alumno, conceptoId) => {
     margin-top: 3px;
 }
 
-/* UTILIDADES */
 .texto-verde {
     color: #27ae60;
 }
