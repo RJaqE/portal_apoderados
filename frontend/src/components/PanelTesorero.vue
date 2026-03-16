@@ -96,18 +96,20 @@ const nuevoAbono = ref({
 const conceptoARendir = ref(null)
 const formRendicion = ref({ monto: 0, descripcion: '', fecha_gasto: '', comprobante: '' })
 
-// Calculamos los montoncitos vivos
+// Calculamos los montoncitos vivos (SOLO EXTERNOS)
 const fondosActivos = computed(() => {
-    return conceptos.value.filter(c => c.estado_fondo !== 'RENDIDO').map(c => {
-        let recaudado = 0;
-        alumnos.value.forEach(al => {
-            if (al.cargos) {
-                const cargo = al.cargos.find(cargo => cargo.concepto === c.id && cargo.estado === 'PAGADO')
-                if (cargo) recaudado += cargo.monto_total
-            }
+    return conceptos.value
+        .filter(c => c.estado_fondo !== 'RENDIDO' && c.destino === 'EXTERNO') // 👈 AQUÍ ESTÁ LA CORRECCIÓN
+        .map(c => {
+            let recaudado = 0;
+            alumnos.value.forEach(al => {
+                if (al.cargos) {
+                    const cargo = al.cargos.find(cargo => cargo.concepto === c.id && cargo.estado === 'PAGADO')
+                    if (cargo) recaudado += cargo.monto_total
+                }
+            })
+            return { ...c, recaudado }
         })
-        return { ...c, recaudado }
-    })
 })
 
 const abrirRendicion = (concepto) => {
