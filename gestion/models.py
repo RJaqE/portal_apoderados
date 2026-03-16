@@ -65,10 +65,17 @@ class ConceptoCobro(models.Model):
         ('CUENTA', 'Fondo del Curso (Cuotas, Salidas, Regalos)'),
         ('EXTERNO', 'Aportes Extra o Voluntarios (Rifas, Solidario, Otros)')
     ]
+    # 👇 NUEVO: Para saber si el montoncito sigue activo o ya se rindió
+    ESTADOS_FONDO = [
+        ('RECAUDANDO', 'En Recaudación'),
+        ('RENDIDO', 'Rendido / Transferido al Proveedor')
+    ]
+    
     nombre = models.CharField(max_length=100)
     monto_estandar = models.IntegerField()
     fecha_vencimiento = models.DateField()
     destino = models.CharField(max_length=20, choices=TIPO_DESTINO, default='CUENTA')
+    estado_fondo = models.CharField(max_length=20, choices=ESTADOS_FONDO, default='RECAUDANDO') # 👈 NUEVO
 
     def __str__(self):
         return f"{self.nombre} (${self.monto_estandar}) - Va a: {self.destino}"

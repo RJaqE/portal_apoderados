@@ -199,6 +199,33 @@ class ConceptoViewSet(viewsets.ModelViewSet):
             "cargos_creados": creados,
             "cargos_ya_existian": omitidos,
         })
+    
+    @action(detail=True, methods=['post'])
+    def rendir_fondo(self, request, pk=None):
+        concepto = self.get_object()
+        
+        if concepto.estado_fondo == 'RENDIDO':
+            return Response({"error": "El fondo ya fue rendido."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 1. Recibimos los datos del tesorero
+        monto = request.data.get('monto')
+        descripcion = request.data.get('descripcion')
+        fecha_gasto = request.data.get('fecha_gasto')
+        comprobante = request.data.get('comprobante', '')
+
+        # 2. Anotamos el gasto en el libro de Egresos
+        EgresoTesoreria.objects.create(
+            monto=monto, 
+            descripcion=descripcion, 
+            fecha_gasto=fecha_gasto, 
+            comprobante=comprobante
+        )
+        
+        # 3. Cerramos el Montoncito
+        concepto.estado_fondo = 'RENDIDO'
+        concepto.save()
+        
+        return Response({"mensaje": "Fondo transferido y registrado en egresos correctamente."})
 
 class CargoViewSet(viewsets.ModelViewSet):
     queryset = Cargo.objects.all().order_by('estado', '-fecha_creacion')
@@ -235,6 +262,10 @@ class CargoViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def reversar_pago(self, request, pk=None):
         cargo = self.get_object()
+
+        # 👇 NUEVA REGLA: Si el montoncito ya se transfirió al proveedor, no se puede devolver la plata.
+        if cargo.concepto.estado_fondo == 'RENDIDO':
+            return Response({"error": "No puedes anular este pago. Los fondos de este concepto ya fueron rendidos/transferidos al proveedor."}, status=status.HTTP_400_BAD_REQUEST)
         
         if cargo.estado != 'PAGADO':
             return Response({"error": "Solo se pueden reversar cuotas pagadas."}, status=status.HTTP_400_BAD_REQUEST)

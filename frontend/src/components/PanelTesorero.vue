@@ -89,6 +89,48 @@ const nuevoAbono = ref({
     monto: '', fecha_transferencia: new Date().toISOString().split('T')[0], comprobante: ''
 })
 
+// === NUEVO: 7. FONDOS EN RECAUDACIÓN (MONTONCITOS) ===
+const conceptoARendir = ref(null)
+const formRendicion = ref({ monto: 0, descripcion: '', fecha_gasto: '', comprobante: '' })
+
+// Calculamos los montoncitos vivos
+const fondosActivos = computed(() => {
+    return conceptos.value.filter(c => c.estado_fondo !== 'RENDIDO').map(c => {
+        let recaudado = 0;
+        alumnos.value.forEach(al => {
+            if (al.cargos) {
+                const cargo = al.cargos.find(cargo => cargo.concepto === c.id && cargo.estado === 'PAGADO')
+                if (cargo) recaudado += cargo.monto_total
+            }
+        })
+        return { ...c, recaudado }
+    })
+})
+
+const abrirRendicion = (concepto) => {
+    conceptoARendir.value = concepto
+    formRendicion.value = {
+        monto: concepto.recaudado, // Sugiere el 100% de lo recaudado
+        descripcion: `Pago a proveedor: ${concepto.nombre}`,
+        fecha_gasto: new Date().toISOString().split('T')[0],
+        comprobante: ''
+    }
+}
+
+const procesarRendicion = async () => {
+    if (!formRendicion.value.monto || formRendicion.value.monto <= 0) return alert("El monto debe ser mayor a 0.")
+    if (!formRendicion.value.fecha_gasto) return alert("Falta la fecha.")
+
+    try {
+        await api.post(`conceptos/${conceptoARendir.value.id}/rendir_fondo/`, formRendicion.value)
+        alert("¡Fondo transferido y registrado como egreso en el banco! 💸")
+        conceptoARendir.value = null
+        cargarDatosGlobales() // Refresca todo para que desaparezca de la lista
+    } catch (e) {
+        alert(e.response?.data?.error || "Error al rendir el fondo.")
+    }
+}
+
 // === CARGA INICIAL ===
 const cargarDatosGlobales = async () => {
     try {
@@ -425,6 +467,57 @@ const procesarPagoConBilletera = async () => {
                         style="background-color: #e53935; margin-top: 15px; width: 100%;">
                         Registrar Egreso Definitivo
                     </button>
+                </div>
+            </div>
+
+            <div class="panel-masivo" style="background-color: #f3e5f5; border-color: #ce93d8;">
+                <div class="header-masivo">
+                    <h3 style="color: #8e24aa;">📊 Fondos por Rendir</h3>
+                </div>
+                
+                <p style="font-size: 0.85em; color: #7b1fa2; margin-top:10px;">Dinero agrupado de cobros que aún no transfieres al proveedor final.</p>
+
+                <div class="lista-gastos" style="margin-top: 15px;">
+                    <div v-for="fondo in fondosActivos" :key="fondo.id" class="item-gasto" style="background: white; border-color: #e1bee7; align-items: flex-start;">
+                        <div class="gasto-info">
+                            <strong style="color:#4a148c;">{{ fondo.nombre }}</strong>
+                            <small>Recaudado: <span class="texto-verde">{{ formatearDinero(fondo.recaudado) }}</span></small>
+                        </div>
+                        <button v-if="conceptoARendir?.id !== fondo.id" @click="abrirRendicion(fondo)" class="btn-mini" style="background-color: #8e24aa;">
+                            📤 Rendir
+                        </button>
+                    </div>
+
+                    <div v-if="fondosActivos.length === 0" class="hint" style="text-align:center;">
+                        No hay fondos activos en recaudación.
+                    </div>
+                </div>
+
+                <div v-if="conceptoARendir" class="form-crear-cobro" style="border-color: #8e24aa; margin-top: 15px; background: white;">
+                    <strong style="color: #8e24aa;">Rendir: {{ conceptoARendir.nombre }}</strong>
+                    <hr style="border: 0; border-top: 1px solid #f3e5f5; margin: 8px 0;" />
+                    <div class="grupo-inputs-cobro">
+                        <div class="campo">
+                            <label>Monto exacto a transferir:</label>
+                            <input type="number" v-model="formRendicion.monto" />
+                        </div>
+                        <div class="campo">
+                            <label>Descripción / Motivo:</label>
+                            <input type="text" v-model="formRendicion.descripcion" />
+                        </div>
+                        <div class="campo">
+                            <label>Fecha de pago:</label>
+                            <input type="date" v-model="formRendicion.fecha_gasto" />
+                        </div>
+                        <div class="campo">
+                            <label>Ref/Boleta (Opcional):</label>
+                            <input type="text" v-model="formRendicion.comprobante" />
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button @click="conceptoARendir = null" style="flex:1; padding: 10px; border: 1px solid #ccc; background: white; border-radius:4px; cursor:pointer;">Cancelar</button>
+                        <button @click="procesarRendicion" style="flex:2; padding: 10px; border: none; background: #8e24aa; color:white; border-radius:4px; font-weight:bold; cursor:pointer;">Confirmar Rendición</button>
+                    </div>
                 </div>
             </div>
 
