@@ -149,6 +149,8 @@ const formatearFecha = (fechaString) => {
                     <div v-if="esStaff" class="buscador-wrapper">
                         <input v-model="busquedaAlumno" type="text" placeholder="🔍 Buscar nombre o n°..."
                             class="input-busqueda" />
+                        <button v-if="busquedaAlumno" @click="busquedaAlumno = ''" class="btn-limpiar-busqueda"
+                            title="Limpiar">✖</button>
                     </div>
 
                     <ul class="lista-nombres">
@@ -248,7 +250,7 @@ const formatearFecha = (fechaString) => {
                                                 cargo.concepto_fecha_vencimiento) }}</td>
                                             <td style="text-align: right;">
                                                 <span class="badge-estado-mini" :class="cargo.estado">{{ cargo.estado
-                                                    }}</span>
+                                                }}</span>
                                             </td>
                                         </tr>
                                     </tbody>
@@ -259,7 +261,7 @@ const formatearFecha = (fechaString) => {
                             <div class="pie-columna" v-if="alumnoActivo">
                                 <span>Total Pagado:</span>
                                 <strong style="color: #27ae60; font-size: 1.1em;">{{ formatearDinero(totalCargosPagados)
-                                    }}</strong>
+                                }}</strong>
                             </div>
                         </section>
 
@@ -339,11 +341,13 @@ const formatearFecha = (fechaString) => {
     letter-spacing: 0.5px;
 }
 
-.dato-item strong { 
-    color: #2c3e50; 
-    font-size: 1.05em; 
-    word-break: break-all; /* 👈 Obliga a romper palabras largas */
-    overflow-wrap: break-word; /* 👈 Soporte para navegadores modernos */
+.dato-item strong {
+    color: #2c3e50;
+    font-size: 1.05em;
+    word-break: break-all;
+    /* 👈 Obliga a romper palabras largas */
+    overflow-wrap: break-word;
+    /* 👈 Soporte para navegadores modernos */
 }
 
 /* === LAYOUT === */
@@ -381,15 +385,36 @@ const formatearFecha = (fechaString) => {
 .buscador-wrapper {
     padding: 10px;
     border-bottom: 1px solid #f0f0f0;
+    position: relative;
 }
 
 .input-busqueda {
     width: 100%;
     padding: 8px;
+    padding-right: 30px;
+    /* Espacio para que el texto no choque con la X */
     border: 1px solid #ddd;
     border-radius: 4px;
     box-sizing: border-box;
     font-size: 0.9em;
+}
+
+.btn-limpiar-busqueda {
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #bdc3c7;
+    cursor: pointer;
+    font-size: 0.9rem;
+    padding: 0;
+    transition: color 0.2s;
+}
+
+.btn-limpiar-busqueda:hover {
+    color: #e74c3c;
 }
 
 .lista-nombres {
