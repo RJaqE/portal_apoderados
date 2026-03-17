@@ -339,9 +339,11 @@ const formatearFecha = (fechaString) => {
     letter-spacing: 0.5px;
 }
 
-.dato-item strong {
-    color: #2c3e50;
-    font-size: 1.05em;
+.dato-item strong { 
+    color: #2c3e50; 
+    font-size: 1.05em; 
+    word-break: break-all; /* 👈 Obliga a romper palabras largas */
+    overflow-wrap: break-word; /* 👈 Soporte para navegadores modernos */
 }
 
 /* === LAYOUT === */
