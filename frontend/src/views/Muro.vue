@@ -225,6 +225,14 @@ const fixMediaUrl = (url) => {
     return `http://127.0.0.1:8000${url}`
 }
 
+const obtenerNombreArchivo = (url) => {
+    if (!url) return 'Documento Adjunto';
+    // Corta la URL por las barras '/' y se queda con la última parte (el nombre del archivo)
+    const nombre = url.split('/').pop();
+    // Le quitamos los parámetros raros de la URL si es que tiene (?)
+    return nombre.split('?')[0];
+}
+
 onMounted(() => {
     cargarDatos()
     verificarPermisos()
@@ -433,8 +441,8 @@ const borrarEvento = async (id) => {
 
                     <div v-if="noticiaSeleccionada.archivo" class="seccion-adjunto">
                         <h4>📄 Documento Adjunto</h4>
-                        <a :href="fixMediaUrl(noticiaSeleccionada.archivo)" target="_blank" class="btn-descargar">
-                            📎 Toca aquí para ver o descargar el archivo
+                        <a :href="fixMediaUrl(noticiaSeleccionada.archivo)" target="_blank" class="btn-descargar" :title="'Descargar ' + obtenerNombreArchivo(noticiaSeleccionada.archivo)">
+                            📎 {{ obtenerNombreArchivo(noticiaSeleccionada.archivo) }}
                         </a>
                     </div>
 
