@@ -124,7 +124,15 @@ class MovimientoCuenta(models.Model):
 
 # === 4. COMUNICACIÓN Y EVENTOS ===
 class Noticia(models.Model):
-    ETIQUETAS = [('GENERAL', 'General 📢'), ('FINANZAS', 'Finanzas 💰'), ('ACADEMICO', 'Académico 🎓'), ('URGENTE', 'Urgente 🚨'), ('SOCIAL', 'Social 🎉')]
+    ETIQUETAS = [
+        ('GENERAL', 'General 📢'), 
+        ('ACADEMICO', 'Académico 📚'), 
+        ('REUNION', 'Reunión 👥'), 
+        ('URGENTE', 'Urgente 🚨'), 
+        ('SOCIAL', 'Social 🎉'),
+        ('FINANZAS', 'Finanzas 💵'), 
+        ('COBRANZA', 'Cobranza 💰')
+    ]
     titulo = models.CharField(max_length=200)
     contenido = models.TextField()
     fecha_creacion = models.DateTimeField(auto_now_add=True)
