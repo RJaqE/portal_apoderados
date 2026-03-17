@@ -40,12 +40,19 @@ const nuevoProrrateo = ref({
 
 // === 4. DEPÓSITO A PLAZO (CONECTADO A LA BD) ===
 const editandoDeposito = ref(false)
+const mostrandoBeneficiarios = ref(false) // 👈 NUEVO: Controla la visibilidad de la lista en modo lectura
+
 const deposito = ref({
     monto: 0,
     fecha_inicio: '',
     fecha_fin: '',
-    alumnos_beneficiarios: [] // Coincide con el nombre en el backend
+    alumnos_beneficiarios: []
 })
+
+// Función auxiliar para traducir ID a Nombre en el modo lectura del depósito
+const obtenerAlumnoPorId = (id) => {
+    return alumnos.value.find(a => a.id === id) || { numero_lista: '?', nombre_completo: 'Desconocido' };
+}
 
 // Calculadora automática
 const cuotaAhorro = computed(() => {
@@ -54,7 +61,7 @@ const cuotaAhorro = computed(() => {
     return Math.floor(deposito.value.monto / idsActivos.length);
 })
 
-// Lista visual de los alumnos beneficiarios
+// Lista visual de los alumnos beneficiarios (solo para modo edición)
 const listaAlumnosAhorro = computed(() => {
     const idsActivos = editandoDeposito.value ? alumnosSeleccionados.value : (deposito.value.alumnos_beneficiarios || []);
     return alumnos.value.filter(a => idsActivos.includes(a.id));
@@ -73,10 +80,8 @@ const guardarDeposito = async () => {
             alumnos_beneficiarios: alumnosSeleccionados.value
         };
 
-        // Enviamos los datos a la nueva ruta en Django
         const res = await api.post('deposito/', payload);
 
-        // Actualizamos la vista con lo que guardó la BD
         deposito.value = res.data;
         editandoDeposito.value = false;
         alert("🏦 ¡Depósito a Plazo guardado en la Base de Datos!");
@@ -92,11 +97,10 @@ const nuevoAbono = ref({
     monto: '', fecha_transferencia: new Date().toISOString().split('T')[0], comprobante: ''
 })
 
-// === NUEVO: 7. FONDOS EN RECAUDACIÓN (MONTONCITOS) ===
+// === 7. FONDOS EN RECAUDACIÓN (MONTONCITOS) ===
 const conceptoARendir = ref(null)
 const formRendicion = ref({ monto: 0, descripcion: '', fecha_gasto: '', comprobante: '' })
 
-// Calculamos los montoncitos vivos (SOLO EXTERNOS)
 const fondosActivos = computed(() => {
     return conceptos.value
         .filter(c => c.estado_fondo !== 'RENDIDO' && c.destino === 'EXTERNO')
@@ -115,7 +119,7 @@ const fondosActivos = computed(() => {
 const abrirRendicion = (concepto) => {
     conceptoARendir.value = concepto
     formRendicion.value = {
-        monto: concepto.recaudado, // Sugiere el 100% de lo recaudado
+        monto: concepto.recaudado,
         descripcion: `Pago a proveedor: ${concepto.nombre}`,
         fecha_gasto: new Date().toISOString().split('T')[0],
         comprobante: ''
@@ -130,7 +134,7 @@ const procesarRendicion = async () => {
         await api.post(`conceptos/${conceptoARendir.value.id}/rendir_fondo/`, formRendicion.value)
         alert("¡Fondo transferido y registrado como egreso en el banco! 💸")
         conceptoARendir.value = null
-        cargarDatosGlobales() // Refresca todo para que desaparezca de la lista
+        cargarDatosGlobales()
     } catch (e) {
         alert(e.response?.data?.error || "Error al rendir el fondo.")
     }
@@ -276,7 +280,6 @@ const ejecutarProrrateo = async () => {
         const res = await api.post('prorrateo/', payload)
         alert(res.data.mensaje + " 🚀")
 
-        // Resetear formulario
         nuevoProrrateo.value = { monto_total: '', tipo: 'INGRESO', descripcion: '', balde: 'CUENTA', registrar_egreso: false, fecha_gasto: new Date().toISOString().split('T')[0] }
         mostrandoFormProrrateo.value = false
 
@@ -555,14 +558,28 @@ const procesarPagoConBilletera = async () => {
                             📅 Desde: <strong>{{ deposito.fecha_inicio }}</strong><br>
                             ⏳ Vence: <strong>{{ deposito.fecha_fin }}</strong>
                         </p>
-                        <p
-                            style="background: white; border: 1px solid #bbdefb; padding: 10px; border-radius: 6px; font-size: 0.9em; margin-top: 15px;">
+
+                        <div @click="mostrandoBeneficiarios = !mostrandoBeneficiarios" class="caja-clickeable-ahorro">
                             <strong style="color: #27ae60;">Saldo por alumno: {{
                                 formatearDinero(Math.floor(deposito.monto / (deposito.alumnos_beneficiarios?.length ||
                                 1))) }}</strong><br>
-                            <small style="color: #7f8c8d;">(Prorrateado entre {{ deposito.alumnos_beneficiarios?.length
-                                || 0 }} alumnos beneficiarios)</small>
-                        </p>
+                            <small style="color: #3498db; text-decoration: underline;">
+                                (Toca aquí para ver los {{ deposito.alumnos_beneficiarios?.length || 0 }} alumnos
+                                beneficiarios)
+                            </small>
+                        </div>
+
+                        <div v-show="mostrandoBeneficiarios" class="lista-nombres-ahorro" style="text-align: left;">
+                            <div v-for="id_al in deposito.alumnos_beneficiarios" :key="id_al" class="nombre-mini">
+                                {{ obtenerAlumnoPorId(id_al).numero_lista }}. {{
+                                obtenerAlumnoPorId(id_al).nombre_completo }}
+                            </div>
+                            <div v-if="!deposito.alumnos_beneficiarios || deposito.alumnos_beneficiarios.length === 0"
+                                class="hint" style="text-align:center;">
+                                No hay alumnos registrados en este depósito.
+                            </div>
+                        </div>
+
                     </div>
                     <div v-else class="esperando" style="padding: 15px; margin-top:0;">
                         <p>No hay depósito a plazo registrado.</p>
@@ -603,7 +620,7 @@ const procesarPagoConBilletera = async () => {
                         <p style="font-size: 0.8em; color: #555; text-align: center; margin-top: 10px;">
                             Prorrateado entre <strong>{{ alumnosSeleccionados.length }}</strong> alumnos marcados:
                         </p>
-                        <div class="lista-nombres-ahorro">
+                        <div class="lista-nombres-ahorro" style="text-align: left;">
                             <div v-for="al in listaAlumnosAhorro" :key="al.id" class="nombre-mini">
                                 {{ al.numero_lista }}. {{ al.nombre_completo }}
                             </div>
@@ -629,7 +646,11 @@ const procesarPagoConBilletera = async () => {
                                 alumnosSeleccionados.length }}/{{ alumnos.length }})</small></label>
                     </div>
 
-                    <div class="lista-alumnos-check">
+                    <div class="toggle-lista" @click="mostrandoListaAlumnos = !mostrandoListaAlumnos">
+                        <span>{{ mostrandoListaAlumnos ? '🔽 Ocultar lista individual' : '▶️ Ver/Editar lista individual' }}</span>
+                    </div>
+
+                    <div v-show="mostrandoListaAlumnos" class="lista-alumnos-check">
                         <div v-for="al in alumnos" :key="al.id" class="checkbox-item individual">
                             <input type="checkbox" :id="'chk' + al.id" :value="al.id" v-model="alumnosSeleccionados">
                             <label :for="'chk' + al.id">{{ al.numero_lista }}. {{ al.nombre_completo }}</label>
@@ -825,7 +846,6 @@ const procesarPagoConBilletera = async () => {
 /* === 🚀 NUEVA ZONA MASIVA GRID === */
 .zona-masiva-grid {
     display: grid;
-    /* 3 columnas en pantallas grandes */
     grid-template-columns: repeat(3, 1fr);
     gap: 20px;
     margin-bottom: 20px;
@@ -1055,6 +1075,21 @@ const procesarPagoConBilletera = async () => {
     background-color: #1b5e20;
 }
 
+/* 👇 ESTILO CLICK PARA MOSTRAR BENEFICIARIOS */
+.caja-clickeable-ahorro {
+    background: white;
+    border: 1px solid #bbdefb;
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 15px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.caja-clickeable-ahorro:hover {
+    background-color: #e3f2fd;
+}
+
 .lista-nombres-ahorro {
     background: white;
     border: 1px solid #bbdefb;
@@ -1096,7 +1131,7 @@ const procesarPagoConBilletera = async () => {
 
 .checkbox-item.todos {
     background: #f0f4f8;
-    border-bottom: 2px solid #ddd;
+    border-bottom: none;
 }
 
 .checkbox-item.individual:hover {
@@ -1114,12 +1149,34 @@ const procesarPagoConBilletera = async () => {
     user-select: none;
 }
 
+/* 👇 BOTÓN PARA OCULTAR/MOSTRAR */
+.toggle-lista {
+    background: #f8fbff;
+    border-top: 1px solid #eee;
+    border-bottom: 1px solid #eee;
+    padding: 10px 15px;
+    text-align: center;
+    cursor: pointer;
+    color: #3498db;
+    transition: background 0.2s;
+}
+
+.toggle-lista:hover {
+    background: #eef5fa;
+}
+
+.toggle-lista span {
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+/* 👇 LISTA EN 1 COLUMNA */
 .lista-alumnos-check {
-    max-height: 250px;
+    max-height: 300px;
     overflow-y: auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     background: white;
+    display: flex;
+    flex-direction: column;
 }
 
 .selector {
@@ -1533,10 +1590,6 @@ const procesarPagoConBilletera = async () => {
 
     .span-2-cols {
         grid-column: span 1;
-    }
-
-    .lista-alumnos-check {
-        grid-template-columns: 1fr;
     }
 }
 </style>
