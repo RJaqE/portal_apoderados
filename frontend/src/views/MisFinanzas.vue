@@ -61,6 +61,18 @@ const alumnoActivo = computed(() => {
     return alumnos.value.find(a => a.id === alumnoSeleccionadoId.value) || null
 })
 
+// === ORDENAMIENTO DE COBROS (PAGADOS ARRIBA, PENDIENTES ABAJO) ===
+const cargosOrdenados = computed(() => {
+    if (!alumnoActivo.value || !alumnoActivo.value.cargos) return []
+    // Clonamos para no mutar el original
+    return [...alumnoActivo.value.cargos].sort((a, b) => {
+        if (a.estado === 'PAGADO' && b.estado !== 'PAGADO') return -1;
+        if (a.estado !== 'PAGADO' && b.estado === 'PAGADO') return 1;
+        return 0;
+    })
+})
+
+
 // === CÁLCULOS MATEMÁTICOS PARA LA VISTA ===
 
 // 1. Total Transferido (Suma de todos los abonos)
@@ -69,13 +81,7 @@ const totalTransferencias = computed(() => {
     return alumnoActivo.value.abonos.reduce((sum, abono) => sum + parseFloat(abono.monto || 0), 0)
 })
 
-// 2. Total de TODOS los cobros asignados (Para el pie de la tabla derecha)
-const totalCargosAsignados = computed(() => {
-    if (!alumnoActivo.value || !alumnoActivo.value.cargos) return 0
-    return alumnoActivo.value.cargos.reduce((sum, cargo) => sum + parseFloat(cargo.monto_total || 0), 0)
-})
-
-// 3. Total de Cobros ya PAGADOS (Para que la ecuación de la cabecera cuadre perfecto)
+// 2. Total de Cobros ya PAGADOS (Para el pie de tabla derecha y la ecuación)
 const totalCargosPagados = computed(() => {
     if (!alumnoActivo.value || !alumnoActivo.value.cargos) return 0
     return alumnoActivo.value.cargos
@@ -124,12 +130,12 @@ const formatearFecha = (fechaString) => {
                     <small>Recuerda enviar tu comprobante a la tesorería para que sea validado.</small>
                 </div>
                 <div class="datos-grid">
-                    <div class="dato-item"><small>Banco</small><strong>BancoEstado</strong></div>
-                    <div class="dato-item"><small>Tipo de Cuenta</small><strong>Cuenta RUT</strong></div>
-                    <div class="dato-item"><small>N° Cuenta</small><strong>12.345.678-9</strong></div>
-                    <div class="dato-item"><small>Nombre</small><strong>Tesorería Curso 8B</strong></div>
-                    <div class="dato-item"><small>RUT</small><strong>12.345.678-9</strong></div>
-                    <div class="dato-item"><small>Correo</small><strong>tesoreria8b@colegio.cl</strong></div>
+                    <div class="dato-item"><small>Banco</small><strong>Banco de Chile</strong></div>
+                    <div class="dato-item"><small>Tipo de Cuenta</small><strong>Cuenta Vista</strong></div>
+                    <div class="dato-item"><small>N° Cuenta</small><strong>59025105</strong></div>
+                    <div class="dato-item"><small>Nombre</small><strong>Ana Fuenzalida</strong></div>
+                    <div class="dato-item"><small>RUT</small><strong>13.855.344-2</strong></div>
+                    <div class="dato-item"><small>Correo</small><strong>generacion2030.coe</strong></div>
                 </div>
             </div>
 
@@ -221,8 +227,7 @@ const formatearFecha = (fechaString) => {
                             </div>
 
                             <div class="contenedor-tabla" v-if="alumnoActivo">
-                                <table class="tabla-compacta"
-                                    v-if="alumnoActivo.cargos && alumnoActivo.cargos.length > 0">
+                                <table class="tabla-compacta" v-if="cargosOrdenados.length > 0">
                                     <thead>
                                         <tr>
                                             <th>Concepto</th>
@@ -231,11 +236,13 @@ const formatearFecha = (fechaString) => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr v-for="cargo in alumnoActivo.cargos" :key="cargo.id">
+                                        <tr v-for="cargo in cargosOrdenados" :key="cargo.id">
                                             <td>
                                                 <strong>{{ cargo.concepto_nombre }}</strong><br>
-                                                <span class="texto-menor">{{ formatearDinero(cargo.monto_total)
-                                                    }}</span>
+                                                <span class="texto-menor"
+                                                    :style="{ color: cargo.estado === 'PAGADO' ? '#27ae60' : '#7f8c8d' }">
+                                                    {{ formatearDinero(cargo.monto_total) }}
+                                                </span>
                                             </td>
                                             <td class="texto-menor">{{ formatearFecha(cargo.fecha_vencimiento ||
                                                 cargo.concepto_fecha_vencimiento) }}</td>
@@ -250,9 +257,9 @@ const formatearFecha = (fechaString) => {
                             </div>
 
                             <div class="pie-columna" v-if="alumnoActivo">
-                                <span>Total Asignado:</span>
-                                <strong style="color: #f39c12; font-size: 1.1em;">{{
-                                    formatearDinero(totalCargosAsignados) }}</strong>
+                                <span>Total Pagado:</span>
+                                <strong style="color: #27ae60; font-size: 1.1em;">{{ formatearDinero(totalCargosPagados)
+                                    }}</strong>
                             </div>
                         </section>
 
