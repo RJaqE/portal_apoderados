@@ -296,6 +296,15 @@ const borrarEvento = async (id) => {
         <main class="feed-central">
             <div v-if="vistaActiva === 'noticias'" class="vista-animada">
 
+                <div class="mensaje-bienvenida">
+                    <h2>👋 ¡Bienvenidos al Portal de Apoderados 8°B!</h2>
+                    <p>
+                        Este espacio fue diseñado para mantenerte informado y brindarte transparencia total.
+                        Aquí podrás leer los comunicados oficiales, revisar el calendario y hacer seguimiento de tus
+                        finanzas.
+                    </p>
+                </div>
+
                 <div class="feed-header">
                     <div class="titulo-row">
                         <h2>📢 Muro Informativo</h2>
@@ -313,8 +322,9 @@ const borrarEvento = async (id) => {
                 </div>
 
                 <div v-else class="lista-noticias">
-                    <div v-for="noticia in noticiasFiltradas" :key="noticia.id" class="tarjeta-noticia"
-                        @click="abrirNoticia(noticia)">
+                    <div v-for="noticia in noticiasFiltradas" :key="noticia.id" class="tarjeta-compacta"
+                        @click="abrirNoticia(noticia)"
+                        :style="{ borderLeftColor: obtenerColorEtiqueta(noticia.etiqueta) }">
 
                         <div v-if="esAdmin" class="acciones-admin">
                             <button class="btn-accion btn-editar" @click.stop="abrirModalEditar(noticia)"
@@ -323,31 +333,28 @@ const borrarEvento = async (id) => {
                                 title="Borrar">🗑️</button>
                         </div>
 
-                        <div class="banner-icono" :style="{ backgroundColor: obtenerColorEtiqueta(noticia.etiqueta) }">
-                            <span class="icono-gigante">{{ obtenerIconoEtiqueta(noticia.etiqueta) }}</span>
-                        </div>
-
-                        <div class="contenido-tarjeta">
-                            <div class="meta-data">
-                                <span class="etiqueta"
-                                    :style="{ backgroundColor: obtenerColorEtiqueta(noticia.etiqueta) }">
-                                    {{ noticia.etiqueta }}
-                                </span>
-                                <span class="fecha">{{ new Date(noticia.fecha_creacion).toLocaleDateString() }}</span>
-                                <span v-if="noticia.archivo" title="Contiene un archivo" class="badge-adjunto">📎
-                                    Adjunto</span>
-                                <span v-if="noticia.galeria && noticia.galeria.length > 0" title="Contiene fotos"
-                                    class="badge-adjunto">🖼️ Fotos ({{ noticia.galeria.length }})</span>
+                        <div class="header-compacto">
+                            <div class="icono-cuadro"
+                                :style="{ backgroundColor: obtenerColorEtiqueta(noticia.etiqueta) + '1A', color: obtenerColorEtiqueta(noticia.etiqueta) }">
+                                {{ obtenerIconoEtiqueta(noticia.etiqueta) }}
                             </div>
 
-                            <h3 class="titulo-noticia">{{ noticia.titulo }}</h3>
-                            <p class="texto-preview">{{ noticia.contenido }}</p>
-                            <button class="btn-leer-mas" @click.stop="abrirNoticia(noticia)">Leer más...</button>
-
-                            <div class="autor">
-                                <small>Por: {{ noticia.autor_nombre }}</small>
+                            <div class="info-principal">
+                                <h3>{{ noticia.titulo }}</h3>
+                                <div class="meta-compacto">
+                                    <span class="badge-texto"
+                                        :style="{ color: obtenerColorEtiqueta(noticia.etiqueta) }">{{ noticia.etiqueta
+                                        }}</span>
+                                    <span class="separador">•</span>
+                                    <span>{{ new Date(noticia.fecha_creacion).toLocaleDateString() }}</span>
+                                    <span v-if="noticia.archivo" class="badge-mini">📎 Adjunto</span>
+                                    <span v-if="noticia.galeria && noticia.galeria.length > 0" class="badge-mini">🖼️
+                                        Fotos</span>
+                                </div>
                             </div>
                         </div>
+
+                        <p class="preview-texto">{{ noticia.contenido }}</p>
                     </div>
                 </div>
             </div>
@@ -609,6 +616,29 @@ const borrarEvento = async (id) => {
     cursor: not-allowed;
 }
 
+/* 👋 MENSAJE DE BIENVENIDA */
+.mensaje-bienvenida {
+    background: linear-gradient(135deg, #f0f7fa 0%, #e3f2fd 100%);
+    border-left: 5px solid #3498db;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.mensaje-bienvenida h2 {
+    margin: 0 0 8px 0;
+    color: #2980b9;
+    font-size: 1.3rem;
+}
+
+.mensaje-bienvenida p {
+    margin: 0;
+    color: #34495e;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
 /* FEED CENTRAL */
 .feed-header {
     background: white;
@@ -649,115 +679,93 @@ const borrarEvento = async (id) => {
     animation: fadeIn 0.3s ease;
 }
 
-/* 🎨 NUEVO: BANNER ICONOGRÁFICO */
-.banner-icono {
-    width: 100%;
-    height: 100px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.85;
-    transition: opacity 0.3s;
-}
-
-.tarjeta-noticia:hover .banner-icono {
-    opacity: 1;
-}
-
-.icono-gigante {
-    font-size: 3rem;
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
-}
-
-/* TARJETAS DE NOTICIAS */
-.tarjeta-noticia {
+/* 📦 TARJETAS COMPACTAS (NUEVO DISEÑO) */
+.tarjeta-compacta {
     background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-    overflow: hidden;
-    margin-bottom: 25px;
-    position: relative;
-    transition: transform 0.2s;
-    cursor: pointer;
-}
-
-.tarjeta-noticia:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-}
-
-.contenido-tarjeta {
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
     padding: 20px;
+    margin-bottom: 15px;
+    position: relative;
+    cursor: pointer;
+    border-left: 5px solid #ccc;
+    /* fallback, se sobreescribe en línea */
+    transition: transform 0.2s, box-shadow 0.2s;
 }
 
-.meta-data {
+.tarjeta-compacta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+}
+
+.header-compacto {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 15px;
     margin-bottom: 10px;
+}
+
+.icono-cuadro {
+    width: 45px;
+    height: 45px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.info-principal h3 {
+    margin: 0 0 5px 0;
+    font-size: 1.15rem;
+    color: #2c3e50;
+    padding-right: 70px;
+    /* Espacio para los botones de admin */
+}
+
+.meta-compacto {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: #7f8c8d;
     flex-wrap: wrap;
 }
 
-.etiqueta {
-    font-size: 0.75rem;
-    color: white;
-    padding: 4px 10px;
-    border-radius: 20px;
+.badge-texto {
     font-weight: bold;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.fecha {
-    font-size: 0.85rem;
-    color: #95a5a6;
+.separador {
+    opacity: 0.5;
 }
 
-.badge-adjunto {
+.badge-mini {
     background: #f1f2f6;
-    color: #2c3e50;
-    font-size: 0.75rem;
-    padding: 3px 8px;
+    padding: 2px 6px;
     border-radius: 4px;
     font-weight: bold;
+    color: #2c3e50;
     border: 1px solid #dfe6e9;
 }
 
-.titulo-noticia {
-    margin: 0 0 10px 0;
-    font-size: 1.2rem;
-    color: #2c3e50;
-}
-
-.texto-preview {
-    color: #34495e;
+.preview-texto {
+    color: #555;
     font-size: 0.95rem;
-    line-height: 1.5;
-    margin-bottom: 15px;
+    line-height: 1.4;
+    margin: 0;
+    /* Truco para cortar a 2 líneas */
     display: -webkit-box;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 
-.btn-leer-mas {
-    background: none;
-    border: none;
-    color: #3498db;
-    cursor: pointer;
-    padding: 0;
-    font-weight: bold;
-}
-
-.autor {
-    margin-top: 15px;
-    border-top: 1px solid #f0f0f0;
-    padding-top: 10px;
-    text-align: right;
-    color: #bdc3c7;
-}
-
-/* Botones Admin */
+/* Botones Admin Adaptados */
 .btn-crear {
     background: #2ecc71;
     color: white;
@@ -774,38 +782,40 @@ const borrarEvento = async (id) => {
 
 .acciones-admin {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 15px;
+    right: 15px;
     display: flex;
     gap: 8px;
     z-index: 10;
 }
 
 .btn-accion {
-    background: rgba(255, 255, 255, 0.95);
-    border: none;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #eee;
     border-radius: 50%;
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    font-size: 1rem;
+    transition: all 0.2s;
+    font-size: 0.9rem;
 }
 
 .btn-editar:hover {
     background: #f1c40f;
     color: white;
+    border-color: #f1c40f;
 }
 
 .btn-borrar:hover {
     background: #e74c3c;
     color: white;
+    border-color: #e74c3c;
 }
 
-/* MODALES Y LECTURA */
+/* MODALES Y LECTURA (INTACTO) */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -870,6 +880,31 @@ const borrarEvento = async (id) => {
     color: #34495e;
     white-space: pre-wrap;
     margin-bottom: 20px;
+}
+
+.banner-icono {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.85;
+}
+
+.etiqueta {
+    font-size: 0.75rem;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.modal-footer {
+    margin-top: 20px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 15px;
+    text-align: right;
+    color: #bdc3c7;
 }
 
 /* 📎 ADJUNTOS Y 🖼️ GALERÍA EN MODAL */
@@ -1245,7 +1280,7 @@ const borrarEvento = async (id) => {
     }
 }
 
-/* MENU MÓVIL (INTACTO) */
+/* MENU MÓVIL */
 .contenedor-menu-flotante {
     display: none;
     position: fixed;
