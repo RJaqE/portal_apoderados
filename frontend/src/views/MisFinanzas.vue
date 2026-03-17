@@ -135,7 +135,7 @@ const formatearFecha = (fechaString) => {
                     <div class="dato-item"><small>N° Cuenta</small><strong>59025105</strong></div>
                     <div class="dato-item"><small>Nombre</small><strong>Ana Fuenzalida</strong></div>
                     <div class="dato-item"><small>RUT</small><strong>13.855.344-2</strong></div>
-                    <div class="dato-item"><small>Correo</small><strong>generacion2030.coe</strong></div>
+                    <div class="dato-item"><small>Correo</small><strong>generacion2030.coe@gmail.com</strong></div>
                 </div>
             </div>
 
