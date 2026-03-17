@@ -99,7 +99,7 @@ const formRendicion = ref({ monto: 0, descripcion: '', fecha_gasto: '', comproba
 // Calculamos los montoncitos vivos (SOLO EXTERNOS)
 const fondosActivos = computed(() => {
     return conceptos.value
-        .filter(c => c.estado_fondo !== 'RENDIDO' && c.destino === 'EXTERNO') // 👈 AQUÍ ESTÁ LA CORRECCIÓN
+        .filter(c => c.estado_fondo !== 'RENDIDO' && c.destino === 'EXTERNO')
         .map(c => {
             let recaudado = 0;
             alumnos.value.forEach(al => {
@@ -146,12 +146,10 @@ const cargarDatosGlobales = async () => {
         const resConceptos = await api.get('conceptos/')
         conceptos.value = resConceptos.data
 
-        // 👇 NUEVO: Traer el depósito de la base de datos
         const resDeposito = await api.get('deposito/')
         if (resDeposito.data && Object.keys(resDeposito.data).length > 0) {
             deposito.value = resDeposito.data;
         } else {
-            // Si no hay depósito creado en la BD, lo dejamos en blanco
             deposito.value = {
                 monto: 0,
                 fecha_inicio: new Date().toISOString().split('T')[0],
@@ -214,8 +212,6 @@ const registrarGasto = async () => {
         alert("¡Gasto registrado en el libro contable! 📉")
         nuevoGasto.value = { monto: '', descripcion: '', fecha_gasto: new Date().toISOString().split('T')[0], comprobante: '' }
         mostrandoFormGasto.value = false
-        // Opcional: Si quieres ver el historial de gastos aquí mismo, podrías cargarlo, 
-        // pero por ahora con guardarlo basta, se verá en el Resumen.
     } catch (e) {
         alert("Error al registrar gasto")
     }
@@ -276,14 +272,14 @@ const ejecutarProrrateo = async () => {
             registrar_egreso: nuevoProrrateo.value.tipo === 'EGRESO' ? nuevoProrrateo.value.registrar_egreso : false,
             fecha_gasto: nuevoProrrateo.value.fecha_gasto
         }
-        
+
         const res = await api.post('prorrateo/', payload)
         alert(res.data.mensaje + " 🚀")
-        
+
         // Resetear formulario
         nuevoProrrateo.value = { monto_total: '', tipo: 'INGRESO', descripcion: '', balde: 'CUENTA', registrar_egreso: false, fecha_gasto: new Date().toISOString().split('T')[0] }
         mostrandoFormProrrateo.value = false
-        
+
         cargarDatosGlobales()
         if (alumnoSeleccionado.value) recargarAlumnoActual()
     } catch (error) {
@@ -298,14 +294,14 @@ const baldeBilletera = computed(() => alumnoSeleccionado.value?.cuenta?.saldo_di
 
 const baldeCuenta = computed(() => {
     if (!alumnoSeleccionado.value) return 0;
-    const ahorroBase = alumnoSeleccionado.value.cuenta?.cuenta_ahorro || 0; // Prorrateos pasados
-    const pagadoCuenta = alumnoSeleccionado.value.cargos?.filter(c => c.estado === 'PAGADO' && c.concepto_destino === 'CUENTA').reduce((sum, c) => sum + c.monto_total, 0) || 0; // Cuotas pagadas
+    const ahorroBase = alumnoSeleccionado.value.cuenta?.cuenta_ahorro || 0;
+    const pagadoCuenta = alumnoSeleccionado.value.cargos?.filter(c => c.estado === 'PAGADO' && c.concepto_destino === 'CUENTA').reduce((sum, c) => sum + c.monto_total, 0) || 0;
     return ahorroBase + pagadoCuenta;
 })
 
 const baldeExterno = computed(() => {
     if (!alumnoSeleccionado.value) return 0;
-    return alumnoSeleccionado.value.cargos?.filter(c => c.estado === 'PAGADO' && c.concepto_destino === 'EXTERNO').reduce((sum, c) => sum + c.monto_total, 0) || 0; // Pagos a terceros
+    return alumnoSeleccionado.value.cargos?.filter(c => c.estado === 'PAGADO' && c.concepto_destino === 'EXTERNO').reduce((sum, c) => sum + c.monto_total, 0) || 0;
 })
 
 // === FUNCIONES DE LA BILLETERA ===
@@ -453,12 +449,16 @@ const procesarPagoConBilletera = async () => {
                     </div>
                     <div class="campo" style="margin-top: 10px;">
                         <label>Descripción para la cartola:</label>
-                        <input type="text" v-model="nuevoProrrateo.descripcion" placeholder="Ej: Regalo Día del Profesor" />
+                        <input type="text" v-model="nuevoProrrateo.descripcion"
+                            placeholder="Ej: Regalo Día del Profesor" />
                     </div>
 
-                    <div v-if="nuevoProrrateo.tipo === 'EGRESO'" style="margin-top: 15px; padding: 10px; background: #ffebee; border-left: 4px solid #c62828; border-radius: 4px;">
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #c62828; font-weight: bold; font-size: 0.9em;">
-                            <input type="checkbox" v-model="nuevoProrrateo.registrar_egreso" style="width: 18px; height: 18px;" />
+                    <div v-if="nuevoProrrateo.tipo === 'EGRESO'"
+                        style="margin-top: 15px; padding: 10px; background: #ffebee; border-left: 4px solid #c62828; border-radius: 4px;">
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #c62828; font-weight: bold; font-size: 0.9em;">
+                            <input type="checkbox" v-model="nuevoProrrateo.registrar_egreso"
+                                style="width: 18px; height: 18px;" />
                             ¿Registrar automáticamente la salida del dinero del Banco Real?
                         </label>
                         <div v-if="nuevoProrrateo.registrar_egreso" style="margin-top: 10px; display: flex; gap: 10px;">
@@ -469,7 +469,9 @@ const procesarPagoConBilletera = async () => {
                         </div>
                     </div>
 
-                    <button @click="ejecutarProrrateo" class="btn-masivo btn-prorratear" :disabled="procesandoProrrateo || alumnosSeleccionados.length === 0" style="margin-top: 15px; width: 100%;">
+                    <button @click="ejecutarProrrateo" class="btn-masivo btn-prorratear"
+                        :disabled="procesandoProrrateo || alumnosSeleccionados.length === 0"
+                        style="margin-top: 15px; width: 100%;">
                         {{ procesandoProrrateo ? 'Calculando...' : '🧮 Aplicar Cálculo a Alumnos' }}
                     </button>
                     <p style="font-size: 0.8em; color: #7f8c8d; margin-top: 10px; text-align: center;">
@@ -478,20 +480,24 @@ const procesarPagoConBilletera = async () => {
                 </div>
             </div>
 
-            <div class="panel-masivo" style="background-color: #f3e5f5; border-color: #ce93d8;">
+            <div class="panel-masivo panel-rendir">
                 <div class="header-masivo">
-                    <h3 style="color: #8e24aa;">📊 Fondos por Rendir</h3>
+                    <h3>📊 Fondos por Rendir</h3>
                 </div>
-                
-                <p style="font-size: 0.85em; color: #7b1fa2; margin-top:10px;">Dinero agrupado de cobros que aún no transfieres al proveedor final.</p>
+
+                <p style="font-size: 0.85em; color: #7b1fa2; margin-top:10px;">Dinero agrupado de cobros que aún no
+                    transfieres al proveedor final.</p>
 
                 <div class="lista-gastos" style="margin-top: 15px;">
-                    <div v-for="fondo in fondosActivos" :key="fondo.id" class="item-gasto" style="background: white; border-color: #e1bee7; align-items: flex-start;">
+                    <div v-for="fondo in fondosActivos" :key="fondo.id" class="tarjeta-fondo-rendir">
                         <div class="gasto-info">
-                            <strong style="color:#4a148c;">{{ fondo.nombre }}</strong>
-                            <small>Recaudado: <span class="texto-verde">{{ formatearDinero(fondo.recaudado) }}</span></small>
+                            <strong style="color:#4a148c; display:block; margin-bottom: 5px; font-size:1.05em;">{{
+                                fondo.nombre }}</strong>
+                            <small style="color: #666;">Recaudado: <span class="texto-verde">{{
+                                    formatearDinero(fondo.recaudado) }}</span></small>
                         </div>
-                        <button v-if="conceptoARendir?.id !== fondo.id" @click="abrirRendicion(fondo)" class="btn-mini" style="background-color: #8e24aa;">
+                        <button v-if="conceptoARendir?.id !== fondo.id" @click="abrirRendicion(fondo)"
+                            class="btn-mini btn-rendir">
                             📤 Rendir
                         </button>
                     </div>
@@ -501,7 +507,8 @@ const procesarPagoConBilletera = async () => {
                     </div>
                 </div>
 
-                <div v-if="conceptoARendir" class="form-crear-cobro" style="border-color: #8e24aa; margin-top: 15px; background: white;">
+                <div v-if="conceptoARendir" class="form-crear-cobro"
+                    style="border-color: #8e24aa; margin-top: 15px; background: white;">
                     <strong style="color: #8e24aa;">Rendir: {{ conceptoARendir.nombre }}</strong>
                     <hr style="border: 0; border-top: 1px solid #f3e5f5; margin: 8px 0;" />
                     <div class="grupo-inputs-cobro">
@@ -523,8 +530,11 @@ const procesarPagoConBilletera = async () => {
                         </div>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button @click="conceptoARendir = null" style="flex:1; padding: 10px; border: 1px solid #ccc; background: white; border-radius:4px; cursor:pointer;">Cancelar</button>
-                        <button @click="procesarRendicion" style="flex:2; padding: 10px; border: none; background: #8e24aa; color:white; border-radius:4px; font-weight:bold; cursor:pointer;">Confirmar Rendición</button>
+                        <button @click="conceptoARendir = null"
+                            style="flex:1; padding: 10px; border: 1px solid #ccc; background: white; border-radius:4px; cursor:pointer;">Cancelar</button>
+                        <button @click="procesarRendicion"
+                            style="flex:2; padding: 10px; border: none; background: #8e24aa; color:white; border-radius:4px; font-weight:bold; cursor:pointer;">Confirmar
+                            Rendición</button>
                     </div>
                 </div>
             </div>
@@ -545,6 +555,14 @@ const procesarPagoConBilletera = async () => {
                             📅 Desde: <strong>{{ deposito.fecha_inicio }}</strong><br>
                             ⏳ Vence: <strong>{{ deposito.fecha_fin }}</strong>
                         </p>
+                        <p
+                            style="background: white; border: 1px solid #bbdefb; padding: 10px; border-radius: 6px; font-size: 0.9em; margin-top: 15px;">
+                            <strong style="color: #27ae60;">Saldo por alumno: {{
+                                formatearDinero(Math.floor(deposito.monto / (deposito.alumnos_beneficiarios?.length ||
+                                1))) }}</strong><br>
+                            <small style="color: #7f8c8d;">(Prorrateado entre {{ deposito.alumnos_beneficiarios?.length
+                                || 0 }} alumnos beneficiarios)</small>
+                        </p>
                     </div>
                     <div v-else class="esperando" style="padding: 15px; margin-top:0;">
                         <p>No hay depósito a plazo registrado.</p>
@@ -552,75 +570,75 @@ const procesarPagoConBilletera = async () => {
                     </div>
                 </div>
 
-                <div v-else class="form-crear-cobro" style="border-color: #3498db;">
-                    <div class="campo" style="margin-bottom: 10px;">
-                        <label>Monto Total ($):</label>
-                        <input type="number" v-model="deposito.monto" />
-                    </div>
-                    <div class="grupo-inputs-cobro">
-                        <div class="campo">
-                            <label>Fecha Inicio:</label>
-                            <input type="date" v-model="deposito.fecha_inicio" />
+                <div v-else>
+                    <div class="form-crear-cobro" style="border-color: #3498db; margin-top: 15px;">
+                        <div class="campo" style="margin-bottom: 10px;">
+                            <label>Monto Total ($):</label>
+                            <input type="number" v-model="deposito.monto" />
                         </div>
-                        <div class="campo">
-                            <label>Fecha Vencimiento:</label>
-                            <input type="date" v-model="deposito.fecha_fin" />
+                        <div class="grupo-inputs-cobro">
+                            <div class="campo">
+                                <label>Fecha Inicio:</label>
+                                <input type="date" v-model="deposito.fecha_inicio" />
+                            </div>
+                            <div class="campo">
+                                <label>Fecha Vencimiento:</label>
+                                <input type="date" v-model="deposito.fecha_fin" />
+                            </div>
+                        </div>
+                        <button @click="guardarDeposito" class="btn-guardar-cobro"
+                            style="background-color: #3498db; margin-top: 15px; width: 100%;">💾 Guardar
+                            Cambios</button>
+                    </div>
+
+                    <hr class="divisor-masivo" style="background: #bbdefb; margin: 15px 0;" />
+
+                    <div class="calculadora-deposito">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #bbdefb;">
+                            <span style="font-weight: bold; color: #2c3e50;">Saldo por alumno:</span>
+                            <strong style="color: #27ae60; font-size: 1.3em;">{{ formatearDinero(cuotaAhorro)
+                                }}</strong>
+                        </div>
+                        <p style="font-size: 0.8em; color: #555; text-align: center; margin-top: 10px;">
+                            Prorrateado entre <strong>{{ alumnosSeleccionados.length }}</strong> alumnos marcados:
+                        </p>
+                        <div class="lista-nombres-ahorro">
+                            <div v-for="al in listaAlumnosAhorro" :key="al.id" class="nombre-mini">
+                                {{ al.numero_lista }}. {{ al.nombre_completo }}
+                            </div>
+                            <div v-if="listaAlumnosAhorro.length === 0" class="hint" style="text-align:center;">
+                                Marca alumnos en la lista de la derecha para ver el cálculo.
+                            </div>
                         </div>
                     </div>
-                    <button @click="guardarDeposito" class="btn-guardar-cobro"
-                        style="background-color: #3498db; margin-top: 15px; width: 100%;">💾 Guardar Cambios</button>
                 </div>
+            </div>
 
-                <hr class="divisor-masivo" style="background: #bbdefb; margin: 15px 0;" />
+            <div class="panel-masivo span-2-cols panel-alumnos">
+                <div class="header-masivo">
+                    <h3 style="color: #2c3e50;">👥 Lista de Alumnos</h3>
+                </div>
+                <p style="font-size: 0.85em; color: #7f8c8d; margin-top:10px;">Selecciona los alumnos para aplicarles
+                    cobros, prorrateos o sumarlos al Depósito a Plazo.</p>
 
-                <div class="calculadora-deposito">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #bbdefb;">
-                        <span style="font-weight: bold; color: #2c3e50;">Saldo por alumno:</span>
-                        <strong style="color: #27ae60; font-size: 1.3em;">{{ formatearDinero(cuotaAhorro) }}</strong>
+                <div class="caja-checkboxes" style="margin-top: 15px;">
+                    <div class="checkbox-item todos">
+                        <input type="checkbox" id="chkTodos" v-model="seleccionarTodos">
+                        <label for="chkTodos"><strong>SELECCIONAR TODO EL CURSO</strong> <small>({{
+                                alumnosSeleccionados.length }}/{{ alumnos.length }})</small></label>
                     </div>
 
-                    <p style="font-size: 0.8em; color: #555; text-align: center; margin-top: 10px;">
-                        Prorrateado entre <strong>{{ editandoDeposito ? alumnosSeleccionados.length :
-                            (deposito.alumnos_beneficiarios ? deposito.alumnos_beneficiarios.length : 0) }}</strong>
-                        alumnos beneficiarios:
-                    </p>
-
-                    <div class="lista-nombres-ahorro">
-                        <div v-for="al in listaAlumnosAhorro" :key="al.id" class="nombre-mini">
-                            {{ al.numero_lista }}. {{ al.nombre_completo }}
-                        </div>
-                        <div v-if="listaAlumnosAhorro.length === 0" class="hint" style="text-align:center;">
-                            Marca alumnos en la lista inferior para ver el cálculo.
+                    <div class="lista-alumnos-check">
+                        <div v-for="al in alumnos" :key="al.id" class="checkbox-item individual">
+                            <input type="checkbox" :id="'chk' + al.id" :value="al.id" v-model="alumnosSeleccionados">
+                            <label :for="'chk' + al.id">{{ al.numero_lista }}. {{ al.nombre_completo }}</label>
                         </div>
                     </div>
                 </div>
             </div>
 
         </div>
-
-        <div class="seccion-cobro-alumnos" style="margin-bottom: 30px;">
-            <label style="font-size: 1.1em; font-weight: bold; color: #2c3e50;">👥 Lista de Alumnos para aplicar
-                acciones y cálculos:</label>
-            <div class="caja-checkboxes">
-                <div class="checkbox-item todos">
-                    <input type="checkbox" id="chkTodos" v-model="seleccionarTodos">
-                    <label for="chkTodos"><strong>SELECCIONAR TODO EL CURSO</strong></label>
-                </div>
-                <div class="toggle-lista" @click="mostrandoListaAlumnos = !mostrandoListaAlumnos">
-                    <span>{{ mostrandoListaAlumnos ? '🔽 Ocultar lista individual' : '▶️ Ver/Editar lista individual'
-                        }}</span>
-                    <small>({{ alumnosSeleccionados.length }} de {{ alumnos.length }} alumnos seleccionados)</small>
-                </div>
-                <div v-show="mostrandoListaAlumnos" class="lista-alumnos-check">
-                    <div v-for="al in alumnos" :key="al.id" class="checkbox-item individual">
-                        <input type="checkbox" :id="'chk' + al.id" :value="al.id" v-model="alumnosSeleccionados">
-                        <label :for="'chk' + al.id">{{ al.numero_lista }}. {{ al.nombre_completo }}</label>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <hr style="border: 0; height: 2px; background: #e0e0e0; margin: 40px 0;">
 
         <div class="selector">
@@ -650,12 +668,16 @@ const procesarPagoConBilletera = async () => {
                             <h2>{{ formatearDinero(baldeBilletera) }}</h2>
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <div style="background: #27ae60; color: white; padding: 10px; border-radius: 8px; text-align: center;">
-                                <small style="font-size: 0.7em; text-transform: uppercase;">📁 Balde 2: Cuenta</small><br>
+                            <div
+                                style="background: #27ae60; color: white; padding: 10px; border-radius: 8px; text-align: center;">
+                                <small style="font-size: 0.7em; text-transform: uppercase;">📁 Balde 2:
+                                    Cuenta</small><br>
                                 <strong style="font-size: 1.2em;">{{ formatearDinero(baldeCuenta) }}</strong>
                             </div>
-                            <div style="background: #f39c12; color: white; padding: 10px; border-radius: 8px; text-align: center;">
-                                <small style="font-size: 0.7em; text-transform: uppercase;">🎟️ Balde 3: Externos</small><br>
+                            <div
+                                style="background: #f39c12; color: white; padding: 10px; border-radius: 8px; text-align: center;">
+                                <small style="font-size: 0.7em; text-transform: uppercase;">🎟️ Balde 3:
+                                    Externos</small><br>
                                 <strong style="font-size: 1.2em;">{{ formatearDinero(baldeExterno) }}</strong>
                             </div>
                         </div>
@@ -795,17 +817,22 @@ const procesarPagoConBilletera = async () => {
     background-color: #fff;
     border-radius: 8px;
     color: #333;
-    max-width: 1300px;
+    max-width: 1400px;
     margin: 0 auto;
     font-family: 'Segoe UI', sans-serif;
 }
 
-/* === ZONA MASIVA GRID === */
+/* === 🚀 NUEVA ZONA MASIVA GRID === */
 .zona-masiva-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    /* 3 columnas en pantallas grandes */
+    grid-template-columns: repeat(3, 1fr);
     gap: 20px;
     margin-bottom: 20px;
+}
+
+.span-2-cols {
+    grid-column: span 2;
 }
 
 .panel-masivo {
@@ -820,9 +847,19 @@ const procesarPagoConBilletera = async () => {
     border: 1px solid #a5d6a7;
 }
 
+.panel-rendir {
+    background-color: #f3e5f5;
+    border: 1px solid #ce93d8;
+}
+
 .panel-deposito {
     background-color: #e3f2fd;
     border: 1px solid #90caf9;
+}
+
+.panel-alumnos {
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
 }
 
 .header-masivo {
@@ -910,6 +947,36 @@ const procesarPagoConBilletera = async () => {
     padding: 15px;
     border-radius: 8px;
     border: 1px dashed #2e7d32;
+}
+
+/* 📊 TARJETAS FONDOS POR RENDIR */
+.tarjeta-fondo-rendir {
+    background: white;
+    border: 2px solid #e1bee7;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.tarjeta-fondo-rendir:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    border-color: #ce93d8;
+}
+
+.btn-rendir {
+    background-color: #8e24aa;
+    font-size: 0.9em;
+    padding: 8px 12px;
+}
+
+.btn-rendir:hover {
+    background-color: #6a1b9a;
 }
 
 .grupo-inputs-cobro {
@@ -1009,6 +1076,7 @@ const procesarPagoConBilletera = async () => {
     border-bottom: none;
 }
 
+/* 👥 LISTA CHECKBOXES ALUMNOS */
 .caja-checkboxes {
     background: white;
     border: 1px solid #ccc;
@@ -1028,7 +1096,7 @@ const procesarPagoConBilletera = async () => {
 
 .checkbox-item.todos {
     background: #f0f4f8;
-    border-bottom: none;
+    border-bottom: 2px solid #ddd;
 }
 
 .checkbox-item.individual:hover {
@@ -1047,30 +1115,11 @@ const procesarPagoConBilletera = async () => {
 }
 
 .lista-alumnos-check {
-    max-height: 200px;
+    max-height: 250px;
     overflow-y: auto;
-}
-
-.toggle-lista {
-    background: #f8fbff;
-    border-top: 1px solid #eee;
-    border-bottom: 1px solid #eee;
-    padding: 10px 15px;
-    text-align: center;
-    cursor: pointer;
-    color: #3498db;
-    display: flex;
-    flex-direction: column;
-    transition: background 0.2s;
-}
-
-.toggle-lista:hover {
-    background: #eef5fa;
-}
-
-.toggle-lista span {
-    font-weight: bold;
-    font-size: 0.9em;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    background: white;
 }
 
 .selector {
@@ -1237,11 +1286,6 @@ const procesarPagoConBilletera = async () => {
 
 .align-center {
     align-items: center;
-}
-
-.APROBADO {
-    color: #27ae60;
-    font-weight: bold;
 }
 
 .btn-eliminar-abono {
@@ -1469,5 +1513,30 @@ const procesarPagoConBilletera = async () => {
     background: #ffebee;
     color: #c62828;
     border: 1px solid #ffcdd2;
+}
+
+/* === RESPONSIVO PARA LA GRILLA === */
+@media (max-width: 1100px) {
+    .zona-masiva-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .span-2-cols {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 768px) {
+    .zona-masiva-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .span-2-cols {
+        grid-column: span 1;
+    }
+
+    .lista-alumnos-check {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
