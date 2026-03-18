@@ -10,7 +10,7 @@ const cargando = ref(true)
 const busqueda = ref('')
 const esAdmin = ref(false)
 const noticiaSeleccionada = ref(null)
-const fotoAmpliada = ref(null) // Para la galería de fotos
+const fotoAmpliada = ref(null)
 
 const vistaActiva = ref('noticias')
 const menuMovilAbierto = ref(false)
@@ -21,7 +21,7 @@ const seleccionarVista = (vista) => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-// === DATOS DEL HORARIO 2025 (Mantenemos tu data intacta) ===
+// === DATOS DEL HORARIO 2025 ===
 const horarioSemana = ref([
     { dia: 'Lunes', bloques: [{ tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Biología CN' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Lengua y Literatura' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Música' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '13:05 - 14:30', materia: 'Matemática' }] },
     { dia: 'Martes', bloques: [{ tipo: 'clase', tiempo: '08:00 - 09:30', materia: 'Biología CN' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '09:45 - 11:15', materia: 'Física CN' }, { tipo: 'recreo' }, { tipo: 'clase', tiempo: '11:30 - 12:55', materia: 'Historia, Geografía y CS' }, { tipo: 'almuerzo', tiempo: '13:00 - 13:45', materia: '🍽️ Almuerzo' }, { tipo: 'clase', tiempo: '13:45 - 14:25', materia: 'Orientación' }, { tipo: 'clase', tiempo: '14:35 - 16:00', materia: 'Inglés' }] },
@@ -89,7 +89,7 @@ const abrirModalEditar = (noticia) => {
         contenido: noticia.contenido,
         etiqueta: noticia.etiqueta,
         archivo: null,
-        galeria: [] // La galería no se edita en este panel simple
+        galeria: []
     }
     archivoPreviewNombre.value = noticia.archivo ? 'Documento actual ya subido' : ''
     galeriaPreview.value = []
@@ -136,7 +136,6 @@ const guardarNoticia = async () => {
         formData.append('archivo', formulario.value.archivo)
     }
 
-    // Agregar múltiples imágenes solo en creación
     if (!modoEdicion.value && formulario.value.galeria.length > 0) {
         formulario.value.galeria.forEach(img => {
             formData.append('galeria_imagenes', img)
@@ -202,7 +201,6 @@ const cerrarModalLectura = () => {
     document.body.style.overflow = 'auto'
 }
 
-// Mapeo de Colores y Emojis por Categoría
 const estilosEtiqueta = (tag) => {
     const config = {
         'GENERAL': { color: '#3498db', icono: '📢' },
@@ -227,9 +225,7 @@ const fixMediaUrl = (url) => {
 
 const obtenerNombreArchivo = (url) => {
     if (!url) return 'Documento Adjunto';
-    // Corta la URL por las barras '/' y se queda con la última parte (el nombre del archivo)
     const nombre = url.split('/').pop();
-    // Le quitamos los parámetros raros de la URL si es que tiene (?)
     return nombre.split('?')[0];
 }
 
@@ -313,6 +309,28 @@ const borrarEvento = async (id) => {
                     </p>
                 </div>
 
+                <div class="widget tarjeta-widget eventos-movil-solo">
+                    <div class="widget-header header-con-boton">
+                        <h3>📅 Próximos Eventos</h3>
+                        <button v-if="esAdmin" class="btn-crear-mini" @click="abrirModalEvento"
+                            title="Nuevo Evento">+</button>
+                    </div>
+                    <ul class="lista-eventos">
+                        <li v-if="eventos.length === 0" class="sin-eventos"><small>No hay eventos próximos</small></li>
+                        <li v-for="evento in eventos" :key="evento.id" class="item-evento-relativo">
+                            <span class="dia">{{ new Date(evento.fecha).getDate() }}</span>
+                            <div class="evento-info">
+                                <strong>{{ evento.titulo }}</strong>
+                                <small>{{ new Date(evento.fecha).toLocaleDateString('es-CL', { month: 'short' }) }} - {{
+                                    new Date(evento.fecha).toLocaleTimeString('es-CL', {
+                                        hour: '2-digit', minute:
+                                    '2-digit', hour12: false }) }} hrs</small>
+                            </div>
+                            <button v-if="esAdmin" class="btn-borrar-evento" @click.stop="borrarEvento(evento.id)"
+                                title="Borrar Evento">✖</button>
+                        </li>
+                    </ul>
+                </div>
                 <div class="feed-header">
                     <div class="titulo-row">
                         <h2>📢 Muro Informativo</h2>
@@ -441,7 +459,8 @@ const borrarEvento = async (id) => {
 
                     <div v-if="noticiaSeleccionada.archivo" class="seccion-adjunto">
                         <h4>📄 Documento Adjunto</h4>
-                        <a :href="fixMediaUrl(noticiaSeleccionada.archivo)" target="_blank" class="btn-descargar" :title="'Descargar ' + obtenerNombreArchivo(noticiaSeleccionada.archivo)">
+                        <a :href="fixMediaUrl(noticiaSeleccionada.archivo)" target="_blank" class="btn-descargar"
+                            :title="'Descargar ' + obtenerNombreArchivo(noticiaSeleccionada.archivo)">
                             📎 {{ obtenerNombreArchivo(noticiaSeleccionada.archivo) }}
                         </a>
                     </div>
@@ -566,7 +585,6 @@ const borrarEvento = async (id) => {
 </template>
 
 <style scoped>
-/* === MANTENEMOS TUS ESTILOS BASE === */
 .muro-layout {
     display: grid;
     grid-template-columns: 240px 1fr 280px;
@@ -624,7 +642,6 @@ const borrarEvento = async (id) => {
     cursor: not-allowed;
 }
 
-/* 👋 MENSAJE DE BIENVENIDA */
 .mensaje-bienvenida {
     background: linear-gradient(135deg, #f0f7fa 0%, #e3f2fd 100%);
     border-left: 5px solid #3498db;
@@ -687,7 +704,6 @@ const borrarEvento = async (id) => {
     animation: fadeIn 0.3s ease;
 }
 
-/* 📦 TARJETAS COMPACTAS (NUEVO DISEÑO) */
 .tarjeta-compacta {
     background: white;
     border-radius: 10px;
@@ -697,7 +713,6 @@ const borrarEvento = async (id) => {
     position: relative;
     cursor: pointer;
     border-left: 5px solid #ccc;
-    /* fallback, se sobreescribe en línea */
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
@@ -729,7 +744,6 @@ const borrarEvento = async (id) => {
     font-size: 1.15rem;
     color: #2c3e50;
     padding-right: 70px;
-    /* Espacio para los botones de admin */
 }
 
 .meta-compacto {
@@ -765,7 +779,6 @@ const borrarEvento = async (id) => {
     font-size: 0.95rem;
     line-height: 1.4;
     margin: 0;
-    /* Truco para cortar a 2 líneas */
     display: -webkit-box;
     -webkit-line-clamp: 2;
     line-clamp: 2;
@@ -773,7 +786,6 @@ const borrarEvento = async (id) => {
     overflow: hidden;
 }
 
-/* Botones Admin Adaptados */
 .btn-crear {
     background: #2ecc71;
     color: white;
@@ -823,7 +835,7 @@ const borrarEvento = async (id) => {
     border-color: #e74c3c;
 }
 
-/* MODALES Y LECTURA (INTACTO) */
+/* MODALES */
 .modal-overlay {
     position: fixed;
     top: 0;
@@ -915,7 +927,6 @@ const borrarEvento = async (id) => {
     color: #bdc3c7;
 }
 
-/* 📎 ADJUNTOS Y 🖼️ GALERÍA EN MODAL */
 .seccion-adjunto,
 .seccion-galeria {
     margin-top: 25px;
@@ -970,7 +981,6 @@ const borrarEvento = async (id) => {
     border-color: #3498db;
 }
 
-/* VISOR PANTALLA COMPLETA */
 .visor-pantalla-completa {
     position: fixed;
     top: 0;
@@ -1003,7 +1013,6 @@ const borrarEvento = async (id) => {
     cursor: pointer;
 }
 
-/* FORMULARIO */
 .modal-header-crear {
     padding: 20px 30px;
     border-bottom: 1px solid #eee;
@@ -1086,7 +1095,12 @@ const borrarEvento = async (id) => {
     margin-top: 10px;
 }
 
-/* WIDGETS EVENTOS Y HORARIO (SE MANTIENEN INTACTOS) */
+/* EVENTOS */
+.eventos-movil-solo {
+    display: none;
+    /* Por defecto (PC) está oculto */
+}
+
 .tarjeta-widget {
     background: white;
     padding: 20px;
@@ -1180,6 +1194,7 @@ const borrarEvento = async (id) => {
     opacity: 1;
 }
 
+/* HORARIO */
 .horario-falsa-tabla {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -1253,7 +1268,6 @@ const borrarEvento = async (id) => {
     font-weight: bold;
 }
 
-/* ANIMACIONES */
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -1288,7 +1302,6 @@ const borrarEvento = async (id) => {
     }
 }
 
-/* MENU MÓVIL */
 .contenedor-menu-flotante {
     display: none;
     position: fixed;
@@ -1371,7 +1384,7 @@ const borrarEvento = async (id) => {
     color: #3498db;
 }
 
-/* RESPONSIVE */
+/* RESPONSIVE MÓVIL */
 @media (max-width: 900px) {
     .muro-layout {
         grid-template-columns: 1fr;
@@ -1380,6 +1393,12 @@ const borrarEvento = async (id) => {
     .sidebar-left,
     .sidebar-right {
         display: none;
+        /* Oculta barras laterales */
+    }
+
+    .eventos-movil-solo {
+        display: block;
+        /* Muestra eventos arriba de las noticias */
     }
 
     .contenedor-menu-flotante {
