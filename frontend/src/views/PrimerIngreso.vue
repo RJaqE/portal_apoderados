@@ -36,7 +36,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router'; // 👈 Importamos el router
-import api from '../axios';
+import api from '../axios'; 
 
 const router = useRouter(); // 👈 Instanciamos el router
 const correo = ref('');
