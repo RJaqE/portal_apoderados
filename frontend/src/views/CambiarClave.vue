@@ -75,7 +75,8 @@ const enviarNuevaClave = async () => {
 
     try {
         // 2. Golpeamos la puerta de confirmación local en Django usando Axios
-        const respuesta = await api.post('seguridad/confirmar-clave/', {
+        // 🛠️ CORRECCIÓN DE URL: Removido el 'seguridad/' basado en las URLs típicas
+        const respuesta = await api.post('confirmar-clave/', {
             uid: uid,
             token: token,
             nueva_clave: nuevaClave.value
@@ -83,6 +84,13 @@ const enviarNuevaClave = async () => {
 
         // Si todo sale bien (Status 200)
         exito.value = true;
+        
+        // 🧹 EL GOLPE DE GRACIA: Limpiar la trampa del navegador
+        // Destruimos la orden de "debe cambiar clave" y borramos cualquier token viejo
+        // Así, al volver a hacer Login, se generará una sesión 100% limpia.
+        localStorage.removeItem('debe_cambiar_clave');
+        localStorage.removeItem('token');
+        localStorage.removeItem('refresh_token');
         
     } catch (e) {
         console.error("Error detallado:", e);

@@ -25,14 +25,20 @@
                     ❌ {{ error }}
                 </div>
             </form>
+
+            <button @click="cerrarSesion" class="btn-cerrar-sesion">
+                Cerrar sesión por ahora
+            </button>
         </div>
     </div>
 </template>
 
 <script setup>
 import { ref } from 'vue';
-import api from '../axios'; // ✨ IMPORTANTE: Traemos a nuestro Cartero oficial (Axios)
+import { useRouter } from 'vue-router'; // 👈 Importamos el router
+import api from '../axios';
 
+const router = useRouter(); // 👈 Instanciamos el router
 const correo = ref('');
 const cargando = ref(false);
 const correoEnviado = ref(false);
@@ -43,19 +49,12 @@ const solicitarEnlace = async () => {
     error.value = '';
 
     try {
-        // Golpeamos la puerta de Django usando nuestra configuración de Axios.
-        // Fíjate que ya no necesitamos poner la URL completa, ni pasar el Token a mano.
-        // Axios se encarga de todo eso en segundo plano.
-        const respuesta = await api.post('seguridad/solicitar-enlace/', {
+        const respuesta = await api.post('solicitar-enlace/', { // Asegúrate que esta ruta coincide con tu backend
             correo: correo.value
         });
-
-        // Si la petición fue exitosa (Status 200)
         correoEnviado.value = true;
-
     } catch (e) {
         console.error("Error detallado:", e);
-        // Atrapamos el error exacto que nos envíe Django
         if (e.response && e.response.data && e.response.data.error) {
             error.value = e.response.data.error;
         } else {
@@ -65,10 +64,17 @@ const solicitarEnlace = async () => {
         cargando.value = false;
     }
 };
+
+// 👇 NUEVO: Función para limpiar la trampa y salir
+const cerrarSesion = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('debe_cambiar_clave'); // Limpiamos la trampa
+    router.push('/'); // Lo devolvemos al Login
+};
 </script>
 
 <style scoped>
-/* Estilos súper limpios y modernos para centrar la tarjeta */
 .primer-ingreso-container {
     display: flex;
     justify-content: center;
@@ -146,5 +152,21 @@ input {
     font-size: 14px;
     margin-top: 10px;
     text-align: center;
+}
+
+/* 👇 NUEVO ESTILO */
+.btn-cerrar-sesion {
+    margin-top: 20px;
+    background: none;
+    border: none;
+    color: #95a5a6;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+}
+
+.btn-cerrar-sesion:hover {
+    color: #e74c3c;
 }
 </style>
