@@ -1,54 +1,58 @@
-from django.contrib import admin
 from django.urls import path, include
-from django.shortcuts import redirect
+from rest_framework.routers import DefaultRouter
 
-# === IMPORTS PARA IMÁGENES Y MEDIA ===
-from django.conf import settings
-from django.conf.urls.static import static
-
-# === IMPORTS DE AUTENTICACIÓN (JWT) ===
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
+# IMPORTANTE: Agregamos todas las vistas, incluyendo las nuevas de seguridad y finanzas
+from .views import (
+    AlumnoViewSet, 
+    AbonoViewSet, 
+    ConceptoViewSet, 
+    CargoViewSet,      
+    quien_soy,         
+    NoticiaViewSet,    
+    resumen_tesoreria, 
+    EventoViewSet,     
+    MovimientoCuentaViewSet, 
+    prorratear_monto,  # <--- NUEVO IMPORT (La función mágica de división de dinero)
+    gestionar_deposito, # <--- NUEVO IMPORT: Para el depósito a plazo
+    EgresoTesoreriaViewSet, # <--- NUEVO IMPORT: Para registrar gastos de tesorería
+    
+    # === NUEVAS VISTAS DE SEGURIDAD ===
+    SolicitarEnlaceSeguridad,
+    ConfirmarCambioClave,
+    RecuperarClaveOlvidada,
 )
 
-# === IMPORTS DE VISTAS DE SEGURIDAD PROPIAS ===
-# 👇 CORRECCIÓN: Agregamos RecuperarClaveOlvidada a la importación
-from gestion.views import SolicitarEnlaceSeguridad, ConfirmarCambioClave, RecuperarClaveOlvidada
-
-# ==============================================================================
-# FUNCIÓN PORTERO
-# ==============================================================================
-def redirect_to_admin(request):
-    return redirect('/admin/')
-
-# ==============================================================================
-# RUTAS PRINCIPALES DEL SISTEMA (URLS)
-# ==============================================================================
+router = DefaultRouter()
+router.register(r'mis-alumnos', AlumnoViewSet, basename='alumno')
+router.register(r'pagos', AbonoViewSet)
+router.register(r'conceptos', ConceptoViewSet)
+# Si tu panel de tesorero usa cargos, no olvides esta línea:
+router.register(r'cargos', CargoViewSet) 
+# === NUEVA RUTA DE NOTICIAS ===
+router.register(r'noticias', NoticiaViewSet) 
+# === NUEVA RUTA DE EVENTOS ===
+router.register(r'eventos', EventoViewSet) 
+# === NUEVA RUTA DE MOVIMIENTOS DE CUENTA (Cartola Histórica) ===
+router.register(r'movimientos', MovimientoCuentaViewSet, basename='movimiento') 
+# === NUEVA RUTA DE EGRESOS DE TESORERÍA ===
+router.register(r'egresos', EgresoTesoreriaViewSet, basename='egreso')
 
 urlpatterns = [
-    # 1. Redirección base (Raíz del sitio)
-    path('', redirect_to_admin),
+    # Rutas automáticas del router (ViewSets)
+    path('', include(router.urls)),
     
-    # 2. Panel de Administración de Django
-    path('admin/', admin.site.urls),
+    # === RUTAS MANUALES Y DE FUNCIONES ===
+    # Como 'quien_soy' es una función solitaria, va aquí aparte:
+    path('quien-soy/', quien_soy, name='quien_soy'),
     
-    # 3. Autenticación por Tokens (Login tradicional de Vue)
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # === RUTAS PARA TESORERÍA ===
+    path('resumen-tesoreria/', resumen_tesoreria, name='resumen_tesoreria'),
+    path('prorrateo/', prorratear_monto, name='prorrateo'), # <--- NUEVA RUTA CONECTADA AL FRONTEND
+    path('deposito/', gestionar_deposito, name='gestionar_deposito'), # <--- NUEVA RUTA DEPÓSITO A PLAZO
     
-    # 4. Seguridad: Cambio Obligatorio y Recuperación de Claves (NUEVAS)
-    path('api/seguridad/solicitar-enlace/', SolicitarEnlaceSeguridad.as_view(), name='solicitar_enlace'),
-    path('api/seguridad/confirmar-clave/', ConfirmarCambioClave.as_view(), name='confirmar_clave'),
-    # 👇 CORRECCIÓN: Agregamos la ruta para recuperar clave
-    path('api/seguridad/recuperar-clave/', RecuperarClaveOlvidada.as_view(), name='recuperar_clave'),
 
-    # 5. Rutas de la Aplicación de Gestión (Alumnos, Pagos, Noticias, etc.)
-    path('api/', include('gestion.urls')),
+    # === RUTAS DE SEGURIDAD (RECUPERACIÓN Y CAMBIO DE CLAVES) ===
+    path('seguridad/solicitar-enlace/', SolicitarEnlaceSeguridad.as_view(), name='solicitar-enlace'),
+    path('seguridad/confirmar-clave/', ConfirmarCambioClave.as_view(), name='confirmar-clave'),
+    path('seguridad/recuperar-clave/', RecuperarClaveOlvidada.as_view(), name='recuperar-clave'),
 ]
-
-# ==============================================================================
-# CONFIGURACIÓN PARA VER ARCHIVOS MULTIMEDIA EN DESARROLLO (LOCAL)
-# ==============================================================================
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
