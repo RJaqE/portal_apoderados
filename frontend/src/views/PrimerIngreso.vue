@@ -49,7 +49,7 @@ const solicitarEnlace = async () => {
     error.value = '';
 
     try {
-        const respuesta = await api.post('solicitar-enlace/', { // Asegúrate que esta ruta coincide con tu backend
+        const respuesta = await api.post('seguridad/solicitar-enlace/', { // Asegúrate que esta ruta coincide con tu backend
             correo: correo.value
         });
         correoEnviado.value = true;

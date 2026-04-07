@@ -76,7 +76,7 @@ const enviarNuevaClave = async () => {
     try {
         // 2. Golpeamos la puerta de confirmación local en Django usando Axios
         // 🛠️ CORRECCIÓN DE URL: Removido el 'seguridad/' basado en las URLs típicas
-        const respuesta = await api.post('confirmar-clave/', {
+        const respuesta = await api.post('seguridad/confirmar-clave/', {
             uid: uid,
             token: token,
             nueva_clave: nuevaClave.value

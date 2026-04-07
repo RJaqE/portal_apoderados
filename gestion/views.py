@@ -342,7 +342,14 @@ def quien_soy(request):
     data = serializer.data
     data['es_staff'] = request.user.is_staff          
     data['es_admin'] = request.user.is_superuser      
-    data['debe_cambiar_clave'] = False 
+    
+    # 👇 AHORA SÍ LEEMOS LA BASE DE DATOS
+    try:
+        data['debe_cambiar_clave'] = request.user.perfil.debe_cambiar_clave
+    except:
+        # Por si un usuario súper antiguo no tiene perfil creado
+        data['debe_cambiar_clave'] = False 
+        
     return Response(data)
 
 @api_view(['GET'])
